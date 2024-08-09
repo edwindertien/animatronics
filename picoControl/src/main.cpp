@@ -7,9 +7,10 @@
 // receive a CRSF string. make sure remote and receiver
 // are paired (see betafpv manual)
 
+// resources:
+// https://arduino-pico.readthedocs.io/en/latest/index.html
 
-
-
+#define USE_CRSF (1)
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display
@@ -73,6 +74,12 @@ void writeRelay(int relay, bool state) {
   }
 }
 
+#ifdef USE_CRSF
+#include "CRSF.h"
+CRSF crsf;
+#else
+
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -93,14 +100,20 @@ void setup() {
   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
   // audio players
   audioInit(&player1,&player1port,&player2,&player2port);
-  // radio
-  RFinit();
-  RFsetSettings(2);
+
+
 // dynamixel
   Serial1.begin(57600);
   Serial1.setTX(0);
   Serial1.setRX(1);
   pinMode(RS485_SR, OUTPUT);
+    // radio on Serial2
+  #ifdef USE_CRSF
+  crsf.begin();
+  #else
+  RFinit();
+  RFsetSettings(2);
+  #endif
 }
 
 
@@ -109,28 +122,53 @@ void loop() {
   static unsigned long looptime;
   static int mode;
 // poll functions outside the 20Hz main loop
+#ifndef USE_CRSF
   RadioPoll();
+#endif
   DynamixelPoll();
   pio_sm_exec_wait_blocking(pio, sm, pio_encode_in(pio_x, 32));
   int position = pio_sm_get_blocking(pio, sm);
 // the 20 Hz main loop
   if (millis() > looptime + 49) {
     looptime = millis();
-    if (getTimeOut() > 9 && mode == ACTIVE) {
+#ifdef USE_CRSF
+    crsf.GetCrsfPacket(); 
+if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
+        for (int n = 0; n < 8; n++) {
+      channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
+    }
+    crsf.UpdateChannels();
+}
+#endif
+
+#ifdef USE_CRSF
+    if (crsf.getTimeOut() > 9 && mode == ACTIVE) {
+#else
+if (getTimeOut() > 9 && mode == ACTIVE) {
+#endif
       mode = IDLE;
       digitalWrite(LED_BUILTIN, HIGH);
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
     }
-    else if (getTimeOut() < 1 && mode == IDLE) {
+#ifdef USE_CRSF
+    else if (crsf.getTimeOut() < 1 && mode == IDLE) {
+  #else
+else if (getTimeOut() < 1 && mode == IDLE) {
+  #endif
       mode = ACTIVE;
     }
+
     for (int n = 0; n < 8; n++) {
       myActionList[n].update();
     }
     processScreen(mode,position);
+    #ifdef USE_CRSF
+    crsf.nudgeTimeOut();
+    #else
     nudgeTimeOut();
+    #endif
   }
 }
 
