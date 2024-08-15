@@ -17,6 +17,11 @@
 // 5 = 440
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
+// Pico-DMX library   (c) 2021 Jostein Løwer SPDX-License-Identifier: BSD-3-Clause
+// Use DMX in async mode (not waiting...)
+// not sure where the WiiNunchuck.h library originates, but it IS the one that works
+// with Pico, Teensy and Arduino
+// 
 
 //#define USE_CRSF (1)
 #include <Arduino.h>
@@ -31,14 +36,19 @@ void processScreen(int mode, int position); // look at the bottom,
 #define ACTIVE 1
 
 // important radio communication materials
-#define NUM_CHANNELS 17
-unsigned char channels[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+#define NUM_CHANNELS 24
+unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+// not sure where this library comes from
 #include "nunchuck.h"
 nunchuck chuck;
 
-
+#include "DmxInput.h"
+DmxInput dmxInput;
+#define DMX_START_CHANNEL 1
+#define DMX_NUM_CHANNELS 8
+volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS)];
 
 int muxpins[] = {16,17,18,19};
 int usedChannel[] = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};
@@ -59,6 +69,8 @@ int checkMux(int channel){
   else return 0;
 }
 
+void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, unsigned char v, unsigned char m);
+void RFWriteRaw(unsigned char *buffer, int length);
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -66,28 +78,51 @@ void setup() {
   digitalWrite(3,HIGH); // pullup source for I2C
   delay(50);
   Serial.begin(115200);
+  Serial2.setRX(9);
+  Serial2.setTX(8);
+  Serial2.begin(9600);
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
   display.clearDisplay();                     // start the screen
 
   chuck.begin(); // send the initilization handshake
   initMux();
+
+  dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
+  dmxInput.read_async(buffer);  
 }
 
 void loop() {
   static unsigned long looptime;
   static int mode;
-
+    
 // the 20 Hz main loop
   if (millis() > looptime + 49) {
     looptime = millis();
     chuck.update(200);
-    Serial.println(chuck.analogStickX);
-
+// get analog channels from mux
   for(int i = 0; i<16;i++){
       channels[i] = checkMux(i)/4;
     }
+// get channels from WiiNunchuck
+    channels[0] = chuck.analogStickX;
+    channels[1] = chuck.analogStickY;
+    channels[6] = chuck.buttons * 64;
+// get channels from DMX    
+        if(millis() > 100+dmxInput.latest_packet_timestamp()) {
+       for(int i = 0; i<8; i++){
+            channels[i+16] = 0;
+          }
+        }
+        else {
+          for(int i = 0; i<8; i++){
+            channels[i+16] = buffer[i+1];
+          }
+    }
+// show on screen
+    RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18]);
     processScreen(0,4);
+
 
   }
 }
@@ -116,8 +151,8 @@ void processScreen(int mode, int position){
         display.setCursor(0, 0);  // Start at top-left corner
         display.setTextSize(1);   // Draw 2X-scale text
         display.setTextColor(SSD1306_WHITE);
-        display.println(F("1234567890 "));
-        display.fillRect(n * 6, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
+        //display.println(F("1234567890 "));
+        display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }
     } else if (menu == 2) {
       display.setCursor(0, 0);  // Start at top-left corner
@@ -130,3 +165,39 @@ void processScreen(int mode, int position){
 }
 
 
+void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, unsigned char v, unsigned char m) {
+  unsigned char length = 7;
+  unsigned char checksum = ~( board + length + 0x03 + x + y + r + v + m);
+  unsigned char buff[length + 4] = {
+    0xFF, 0xFF, // Header
+    (unsigned char) board, //ID
+    length, // length
+    0x03, // write
+    x,
+    y,
+    r,
+    v,
+    m,
+    checksum
+  };
+  RFWriteRaw(buff, length + 4);
+}
+
+/********************************************************************
+   RAW SERIAL COMMUNICATION USING RS485 PROTOCOL
+
+   RS485 uses an extra bit, being the Send/Receive bit. Therefore, we need
+   'wrappers' around the Serial.XXX()'s that takes care of handling it.
+   These functions are below.
+ ********************************************************************/
+
+
+// Writes the characters in buffer to the RS485. Blocks until the
+// sending has finished.
+void RFWriteRaw(unsigned char *buffer, int length) {
+  //digitalWrite(RS485_SR, HIGH);
+  if (digitalRead(LED_BUILTIN) == 0)digitalWrite(LED_BUILTIN, HIGH); else digitalWrite(LED_BUILTIN, LOW);
+  Serial2.write((uint8_t*)buffer, length);
+  Serial2.flush(); // waits for the buffer to be empty
+  //digitalWrite(RS485_SR, LOW); // is necessary when we listen too (but we don't)
+}
