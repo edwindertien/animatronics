@@ -51,8 +51,9 @@ DmxInput dmxInput;
 volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS)];
 
 int muxpins[] = {16,17,18,19};
-int usedChannel[] = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};
-int switchChannel[] =  {0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0};
+int usedChannel[]   = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};  // used channels on the mux
+int switchChannel[] = {0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0};  // switch type channels
+int invertChannel[] = {0,0,0,0,0,0,0,0,1,0,1,0,1,0,0,1};  // values that need to be inverted
 void initMux(){
   for(int i = 0; i<4; i++){pinMode(muxpins[i],OUTPUT);}
 }
@@ -62,9 +63,12 @@ int checkMux(int channel){
   }
   if(usedChannel[channel]){
     if(switchChannel[channel]){ 
-      if(analogRead(A0)>100) return 0; else return 1023;
+      if(analogRead(A0)>100) return 0; else return 4095;
     }
-    else return analogRead(A0);
+    else {
+      if(invertChannel[channel]) return(4095-analogRead(A0));
+      else return analogRead(A0);
+    }
   }
   else return 0;
 }
@@ -132,7 +136,7 @@ void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
     static int menu;
-     button = !digitalRead(22);
+   if(channels[2]>100) button = 1; else button = 0;
     if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
@@ -157,7 +161,17 @@ void processScreen(int mode, int position){
       display.setCursor(0, 0);  // Start at top-left corner
       display.setTextSize(1);   // Draw 2X-scale text
       display.setTextColor(SSD1306_WHITE);
-      display.println(F("actions"));
+
+      //display.println(F("actions"));
+      display.drawCircle(16, 16, 14, SSD1306_WHITE);
+    display.drawLine(16, 2, 16, 30, SSD1306_WHITE);
+    display.drawLine(2, 16, 30, 16, SSD1306_WHITE);
+    display.fillCircle(map(channels[9], 0, 255, 2, 30), map(channels[10], 0, 255, 30, 2), 3, SSD1306_WHITE);
+
+      display.drawCircle(112, 16, 14, SSD1306_WHITE);
+    display.drawLine(112, 2, 112, 30, SSD1306_WHITE);
+    display.drawLine(98, 16,126, 16, SSD1306_WHITE);
+    display.fillCircle(map(channels[14], 0, 255, 98, 126), map(channels[15], 0, 255, 30, 2), 3, SSD1306_WHITE);
 
     }
     display.display();
