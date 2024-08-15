@@ -73,23 +73,23 @@ void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, un
 void RFWriteRaw(unsigned char *buffer, int length);
 
 void setup() {
+  // for debug
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(3,OUTPUT);
-  digitalWrite(3,HIGH); // pullup source for I2C
-  delay(50);
   Serial.begin(115200);
+  // for RF
   Serial2.setRX(9);
   Serial2.setTX(8);
   Serial2.begin(9600);
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
   display.clearDisplay();                     // start the screen
-
+  // nunchuck on I2C, sharing with Display
   chuck.begin(); // send the initilization handshake
+  // simple analog mux on A0, controlled by pins [16..19]
   initMux();
-
+  // dmx on Serial 1 (GPIO 0 input)
   dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
-  dmxInput.read_async(buffer);  
+  dmxInput.read_async(buffer);  // no-wait code
 }
 
 void loop() {
@@ -119,11 +119,10 @@ void loop() {
             channels[i+16] = buffer[i+1];
           }
     }
-// show on screen
+    // send to robot (choose your channels)
     RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18]);
+    // show on screen
     processScreen(0,4);
-
-
   }
 }
 
