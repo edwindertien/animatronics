@@ -43,7 +43,8 @@ unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 // not sure where this library comes from
 #include "nunchuck.h"
 nunchuck chuck;
-
+#define X_CENTER 132
+#define Y_CENTER 130
 #include "DmxInput.h"
 DmxInput dmxInput;
 #define DMX_START_CHANNEL 1
@@ -73,7 +74,7 @@ int checkMux(int channel){
   else return 0;
 }
 
-void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, unsigned char v, unsigned char m);
+void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, unsigned char pat, unsigned char bns, unsigned char r, unsigned char g, unsigned char b);
 void RFWriteRaw(unsigned char *buffer, int length);
 
 void setup() {
@@ -106,17 +107,32 @@ void loop() {
     chuck.update(200);
 // get analog channels from mux
   for(int i = 0; i<16;i++){
-      channels[i] = checkMux(i)/4;
+      channels[i] = 0;//checkMux(i)/4;
     }
 // get channels from WiiNunchuck
-    channels[0] = chuck.analogStickX;
-    channels[1] = chuck.analogStickY;
-    channels[6] = chuck.buttons * 64;
+if(chuck.buttons == 0) {
+    channels[0] = X_CENTER+(chuck.analogStickX- X_CENTER)/(2);
+    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(2);
+}
+else if (chuck.buttons==2)
+{
+    channels[0] =  X_CENTER+(chuck.analogStickX- X_CENTER)/(1.5);
+    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(1.5);
+}
+else 
+{
+    channels[0] =  X_CENTER+(chuck.analogStickX- X_CENTER)/(1);
+    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(1);
+}
+   // channels[6] = chuck.buttons * 64;
 // get channels from DMX    
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
             channels[i+16] = 0;
           }
+          channels[18] = 127;
+          channels[16] = 20;
+          channels[17] = 64;
         }
         else {
           for(int i = 0; i<8; i++){
@@ -124,7 +140,7 @@ void loop() {
           }
     }
     // send to robot (choose your channels)
-    RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18]);
+    RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
     // show on screen
     processScreen(0,4);
   }
@@ -135,9 +151,9 @@ void loop() {
 void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
-    static int menu;
-   if(channels[2]>100) button = 1; else button = 0;
-    if (button && !oldbutton) menu++;
+    static int menu = 1;
+ //  if(channels[2]>100) button = 1; else button = 0;
+  //  if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
 /// and now for the display
@@ -178,9 +194,9 @@ void processScreen(int mode, int position){
 }
 
 
-void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, unsigned char v, unsigned char m) {
-  unsigned char length = 7;
-  unsigned char checksum = ~( board + length + 0x03 + x + y + r + v + m);
+void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, unsigned char pat, unsigned char bns, unsigned char r, unsigned char g, unsigned char b) {
+  unsigned char length = 10;
+  unsigned char checksum = ~( board + length + 0x03 + x + y + r + g + b + pal + pat + bns);
   unsigned char buff[length + 4] = {
     0xFF, 0xFF, // Header
     (unsigned char) board, //ID
@@ -188,9 +204,12 @@ void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char r, un
     0x03, // write
     x,
     y,
+    pal,
+    pat,
+    bns,
     r,
-    v,
-    m,
+    g,
+    b,
     checksum
   };
   RFWriteRaw(buff, length + 4);
