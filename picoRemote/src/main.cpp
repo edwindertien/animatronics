@@ -22,7 +22,7 @@
 // not sure where the WiiNunchuck.h library originates, but it IS the one that works
 // with Pico, Teensy and Arduino
 // 
-
+//#define DEBUG (1)
 //#define USE_CRSF (1)
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
@@ -35,6 +35,7 @@ void processScreen(int mode, int position); // look at the bottom,
 #define IDLE 0
 #define ACTIVE 1
 
+
 // important radio communication materials
 #define NUM_CHANNELS 24
 unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -43,12 +44,13 @@ unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 // not sure where this library comes from
 #include "nunchuck.h"
 nunchuck chuck;
-#define X_CENTER 132
-#define Y_CENTER 130
+#define X_CENTER 130
+#define Y_CENTER 127
 #include "DmxInput.h"
 DmxInput dmxInput;
 #define DMX_START_CHANNEL 1
-#define DMX_NUM_CHANNELS 8
+#define DMX_NUM_CHANNELS 16
+#define DMX_OFFSET 8
 volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS)];
 
 int muxpins[] = {16,17,18,19};
@@ -111,20 +113,25 @@ void loop() {
     }
 // get channels from WiiNunchuck
 if(chuck.buttons == 0) {
-    channels[0] = X_CENTER+(chuck.analogStickX- X_CENTER)/(2);
-    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(2);
+    channels[0] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(2);
+    channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(2);
 }
 else if (chuck.buttons==2)
 {
-    channels[0] =  X_CENTER+(chuck.analogStickX- X_CENTER)/(1.5);
-    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(1.5);
+    channels[0] =  127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1.5);
+    channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1.5);
 }
 else 
 {
-    channels[0] =  X_CENTER+(chuck.analogStickX- X_CENTER)/(1);
-    channels[1] = Y_CENTER+(chuck.analogStickY-Y_CENTER)/(1);
+    channels[0] =  127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1);
+    channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1);
 }
    // channels[6] = chuck.buttons * 64;
+   #ifdef DEBUG
+   Serial.print(channels[0]);
+   Serial.print(',');
+   Serial.println(channels[1]);
+   #endif
 // get channels from DMX    
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
@@ -136,7 +143,7 @@ else
         }
         else {
           for(int i = 0; i<8; i++){
-            channels[i+16] = buffer[i+1];
+            channels[i+16] = buffer[i+1+DMX_OFFSET];
           }
     }
     // send to robot (choose your channels)
