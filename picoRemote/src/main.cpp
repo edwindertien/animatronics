@@ -21,10 +21,32 @@
 // Use DMX in async mode (not waiting...)
 // not sure where the WiiNunchuck.h library originates, but it IS the one that works
 // with Pico, Teensy and Arduino
+//
+// The usb midi host functions from rppicomidi are used under the following license: 
+// MIT license, check LICENSE for more information
+// Copyright (c) 2023 rppicomidi
+// Modified from device_info.ino from 
+// https://github.com/sekigon-gonnoc/Pico-PIO-USB/
 // 
+/*********************************************************************
+ Adafruit invests time and resources providing this open source code,
+ please support Adafruit and open-source hardware by purchasing
+ products from Adafruit!
+
+ MIT license, check LICENSE for more information
+ Copyright (c) 2019 Ha Thach for Adafruit Industries
+ All text above, and the splash screen below must be included in
+ any redistribution
+*********************************************************************/
 //#define DEBUG (1)
 //#define USE_CRSF (1)
+//#define USE_DMX (1)
 #include <Arduino.h>
+
+#ifndef USE_DMX
+#include "USBhostfunctions.h"
+#endif
+
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
@@ -46,12 +68,16 @@ unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 nunchuck chuck;
 #define X_CENTER 130
 #define Y_CENTER 127
+
+#ifdef USE_DMX
 #include "DmxInput.h"
 DmxInput dmxInput;
 #define DMX_START_CHANNEL 1
 #define DMX_NUM_CHANNELS 16
 #define DMX_OFFSET 8
 volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS)];
+#endif
+
 
 int muxpins[] = {16,17,18,19};
 int usedChannel[]   = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};  // used channels on the mux
@@ -79,6 +105,8 @@ int checkMux(int channel){
 void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, unsigned char pat, unsigned char bns, unsigned char r, unsigned char g, unsigned char b);
 void RFWriteRaw(unsigned char *buffer, int length);
 
+
+
 void setup() {
   // for debug
   pinMode(LED_BUILTIN, OUTPUT);
@@ -94,9 +122,11 @@ void setup() {
   chuck.begin(); // send the initilization handshake
   // simple analog mux on A0, controlled by pins [16..19]
   initMux();
+  #ifdef USE_DMX
   // dmx on Serial 1 (GPIO 0 input)
   dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
   dmxInput.read_async(buffer);  // no-wait code
+  #endif
 }
 
 void loop() {
@@ -109,7 +139,7 @@ void loop() {
     chuck.update(200);
 // get analog channels from mux
   for(int i = 0; i<16;i++){
-      channels[i] = 0;//checkMux(i)/4;
+      channels[i] = checkMux(i)/4;
     }
 // get channels from WiiNunchuck
 if(chuck.buttons == 0) {
@@ -132,6 +162,8 @@ else
    Serial.print(',');
    Serial.println(channels[1]);
    #endif
+
+   #ifdef USE_DMX
 // get channels from DMX    
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
@@ -146,21 +178,74 @@ else
             channels[i+16] = buffer[i+1+DMX_OFFSET];
           }
     }
+    #endif
     // send to robot (choose your channels)
     RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
     // show on screen
     processScreen(0,4);
   }
 }
+//////////////////////////
+// USB handling on Core1
+/////////////////////////
+#ifndef USE_DMX
+// core1's setup
+void setup1() {
+  //while (!Serial) {
+  //  delay(100);   // wait for native usb
+ // }
+  Serial.printf("Core1 setup to run TinyUSB host with pio-usb\r\n");
 
+  // Check for CPU frequency, must be multiple of 120Mhz for bit-banging USB
+  uint32_t cpu_hz = clock_get_hz(clk_sys);
+  if ( cpu_hz != 120000000UL && cpu_hz != 240000000UL ) {
+    delay(2000);   // wait for native usb
+    Serial.printf("Error: CPU Clock = %u, PIO USB require CPU clock must be multiple of 120 Mhz\r\n", cpu_hz);
+    Serial.printf("Change your CPU Clock to either 120 or 240 Mhz in Menu->CPU Speed \r\n", cpu_hz);
+    while(1) delay(1);
+  }
 
+  pio_usb_configuration_t pio_cfg = PIO_USB_DEFAULT_CONFIG;
+  pio_cfg.pin_dp = PIN_USB_HOST_DP;
+ 
+ // Change the next line to #if 1 if the Pico-PIO-USB library version is 0.5.3 or older.
+ #if 0
+ #if defined(ARDUINO_RASPBERRY_PI_PICO_W)
+  /* Need to swap PIOs so PIO code from CYW43 PIO SPI driver will fit */
+  pio_cfg.pio_rx_num = 0;
+  pio_cfg.pio_tx_num = 1;
+ #endif /* ARDUINO_RASPBERRY_PI_PICO_W */
+ #endif
+ 
+  USBHost.configure_pio_usb(1, &pio_cfg);
+#ifdef PIN_5V_EN
+  pinMode(PIN_5V_EN, OUTPUT);
+  digitalWrite(PIN_5V_EN, PIN_5V_EN_STATE);
+#endif
+  // Optionally, configure the buffer sizes here
+  // The commented out code shows the default values
+  // tuh_midih_define_limits(64, 64, 16);
+
+  // run host stack on controller (rhport) 1
+  // Note: For rp2040 pico-pio-usb, calling USBHost.begin() on core1 will have most of the
+  // host bit-banging processing works done in core1 to free up core0 for other works
+  USBHost.begin(1);
+}
+
+// core1's loop
+void loop1()
+{
+  USBHost.task();
+}
+#endif
+////////////////// to be moved to libraries: 
 
 void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
     static int menu = 1;
- //  if(channels[2]>100) button = 1; else button = 0;
-  //  if (button && !oldbutton) menu++;
+   if(channels[2]>100) button = 1; else button = 0;
+    if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
 /// and now for the display

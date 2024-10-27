@@ -32,6 +32,12 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #define PUSH_BUTTON 22
 // for communication with motor driver and other externals
 #include "DynamixelReader.h"
+
+int dynamixelIDs [] =       {   44,    45,   46};
+int dynamixelMaxPos [] =    {  1000, 1800, 1524}; 
+int dynamixelMinPos [] =    {  3000, 2200, 2596}; 
+int dynamixelOffset [] =    {  0,    0,    0};
+
 // important radio communication materials
 #include "Radio.h"
 #define NUM_CHANNELS 17
@@ -103,10 +109,14 @@ void setup() {
 
 
 // dynamixel
-  Serial1.begin(57600);
+  Serial1.begin(1000000);
   Serial1.setTX(0);
   Serial1.setRX(1);
   pinMode(RS485_SR, OUTPUT);
+
+   for (int n = 0; n < 2; n++) {
+    DynamixelWrite(dynamixelIDs[n], 28, 0); // 28 -> gain
+  }
     // radio on Serial2
   #ifdef USE_CRSF
   crsf.begin();
@@ -138,6 +148,19 @@ if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
     }
     crsf.UpdateChannels();
+
+      
+      
+      DynamixelWrite(dynamixelIDs[0], 28, map(channels[2],0,255,0,8));
+      DynamixelWrite(dynamixelIDs[1], 28, map(channels[2],0,255,0,8));
+      DynamixelWrite(dynamixelIDs[2], 28, map(channels[2],0,255,0,8));
+
+   DynamixelWrite(dynamixelIDs[0], 30, map(channels[0], 0, 255, dynamixelMinPos[0]-dynamixelOffset[0], dynamixelMaxPos[0]-dynamixelOffset[0]));
+ DynamixelWrite(dynamixelIDs[1], 30, map(channels[1], 0, 255, dynamixelMinPos[1]-dynamixelOffset[1], dynamixelMaxPos[1]-dynamixelOffset[1]));
+
+ DynamixelWrite(dynamixelIDs[2], 30, map(channels[1], 0, 255, dynamixelMinPos[2]-dynamixelOffset[2], dynamixelMaxPos[2]-dynamixelOffset[2]));
+
+
 }
 #endif
 
