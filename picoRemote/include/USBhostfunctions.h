@@ -203,9 +203,18 @@ void tuh_midi_rx_cb(uint8_t dev_addr, uint32_t num_packets)
         uint32_t bytes_read = tuh_midi_stream_read(dev_addr, &cable_num, buffer, sizeof(buffer));
         if (bytes_read == 0)
           return;
-        Serial.printf("MIDI RX Cable #%u:", cable_num);
+       // Serial.printf("MIDI RX Cable #%u:", cable_num);
+       
         for (uint32_t idx = 0; idx < bytes_read; idx++) {
-          Serial.printf("%02x ", buffer[idx]);
+          Serial.print( buffer[idx]);
+          Serial.print(',');
+          
+           
+        }
+        if(buffer[0]==176){
+          for(int i=16; i<32; i++){
+            if(buffer[1]==i) channels[i] = buffer[2];
+          }
         }
         Serial.printf("\r\n");
       }

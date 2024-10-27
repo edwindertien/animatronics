@@ -43,6 +43,12 @@
 //#define USE_DMX (1)
 #include <Arduino.h>
 
+// important radio communication materials
+#define NUM_CHANNELS 32
+unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+
 #ifndef USE_DMX
 #include "USBhostfunctions.h"
 #endif
@@ -58,10 +64,6 @@ void processScreen(int mode, int position); // look at the bottom,
 #define ACTIVE 1
 
 
-// important radio communication materials
-#define NUM_CHANNELS 24
-unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 // not sure where this library comes from
 #include "nunchuck.h"
@@ -156,7 +158,7 @@ else
     channels[0] =  127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1);
     channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1);
 }
-   // channels[6] = chuck.buttons * 64;
+   channels[6] = chuck.buttons * 64;
    #ifdef DEBUG
    Serial.print(channels[0]);
    Serial.print(',');
@@ -181,6 +183,8 @@ else
     #endif
     // send to robot (choose your channels)
     RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
+    // for Alan:
+    // RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
     // show on screen
     processScreen(0,4);
   }
@@ -244,7 +248,7 @@ void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
     static int menu = 1;
-   if(channels[2]>100) button = 1; else button = 0;
+   if(channels[6]>140) button = 1; else button = 0;
     if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
@@ -258,28 +262,48 @@ void processScreen(int mode, int position){
       if (mode == ACTIVE) display.println(F("ACTIVE"));
       if (mode == IDLE) display.println(F("IDLE"));
     } else if (menu == 1) {
-      for (int n = 0; n < NUM_CHANNELS; n++) {
+      for (int n = 16; n < NUM_CHANNELS; n++) {
         display.setCursor(0, 0);  // Start at top-left corner
         display.setTextSize(1);   // Draw 2X-scale text
         display.setTextColor(SSD1306_WHITE);
         //display.println(F("1234567890 "));
-        display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
+        display.fillRect((n-16) * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }
     } else if (menu == 2) {
       display.setCursor(0, 0);  // Start at top-left corner
       display.setTextSize(1);   // Draw 2X-scale text
       display.setTextColor(SSD1306_WHITE);
 
-      //display.println(F("actions"));
-      display.drawCircle(16, 16, 14, SSD1306_WHITE);
+     display.drawCircle(64, 32, 14, SSD1306_WHITE);
+    display.drawLine(64, 18, 64, 46, SSD1306_WHITE);
+    display.drawLine(50, 32, 78, 32, SSD1306_WHITE);
+    display.fillCircle(map(channels[0], 0, 255, 50, 78), map(channels[1], 0, 255, 18,46), 3+channels[6]/64, SSD1306_WHITE);
+
+
+
+    display.drawCircle(16, 16, 14, SSD1306_WHITE);
     display.drawLine(16, 2, 16, 30, SSD1306_WHITE);
     display.drawLine(2, 16, 30, 16, SSD1306_WHITE);
-    display.fillCircle(map(channels[9], 0, 255, 2, 30), map(channels[10], 0, 255, 30, 2), 3, SSD1306_WHITE);
+    display.fillCircle(map(channels[9], 0, 255, 2, 30), map(channels[10], 0, 255, 30, 2), 3+channels[2]/127, SSD1306_WHITE);
 
-      display.drawCircle(112, 16, 14, SSD1306_WHITE);
+    display.drawCircle(112, 16, 14, SSD1306_WHITE);
     display.drawLine(112, 2, 112, 30, SSD1306_WHITE);
     display.drawLine(98, 16,126, 16, SSD1306_WHITE);
-    display.fillCircle(map(channels[14], 0, 255, 98, 126), map(channels[15], 0, 255, 30, 2), 3, SSD1306_WHITE);
+    display.fillCircle(map(channels[14], 0, 255, 98, 126), map(channels[15], 0, 255, 30, 2), 3+channels[4]/127, SSD1306_WHITE);
+
+        display.drawCircle(26, 48, 14, SSD1306_WHITE);
+        display.drawLine(26, 34, 26, 62, SSD1306_WHITE);
+   display.drawLine(12, 48, 40, 48, SSD1306_WHITE);
+    display.fillCircle(map(channels[7], 0, 255, 12, 40), map(channels[8], 0, 255, 62, 34), 3, SSD1306_WHITE);
+
+        display.drawCircle(102, 48, 14, SSD1306_WHITE);
+        display.drawLine(102, 34, 102, 62, SSD1306_WHITE);
+   display.drawLine(88, 48, 116, 48, SSD1306_WHITE);
+    display.fillCircle(map(channels[13], 0, 255, 88, 116), map(channels[12], 0, 255, 62, 34), 3, SSD1306_WHITE);
+
+
+   display.fillRect(32, 32 - channels[3] / 8, 4, channels[3] / 8, SSD1306_INVERSE);
+   display.fillRect(90, 32 - channels[5] / 8, 4, channels[5] / 8, SSD1306_INVERSE);
 
     }
     display.display();
