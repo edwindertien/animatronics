@@ -212,8 +212,18 @@ void tuh_midi_rx_cb(uint8_t dev_addr, uint32_t num_packets)
            
         }
         if(buffer[0]==176){
-          for(int i=16; i<32; i++){
-            if(buffer[1]==i) channels[i] = buffer[2];
+          for(int i=1; i<9; i++){
+            if(buffer[1]==i) channels[i+15] =2*buffer[2];
+          }
+        }
+        if(buffer[0]==144){
+          for(int i = 36; i<44; i++){
+            if(buffer[1]==i) channels[i-12] = 8*buffer[2];
+          }
+        }
+                if(buffer[0]==128){
+          for(int i = 36; i<44; i++){
+            if(buffer[1]==i) channels[i-12] = 0;
           }
         }
         Serial.printf("\r\n");
