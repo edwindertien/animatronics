@@ -7,7 +7,7 @@
 #define BOARD_ID 13
 #define RS485_SR 2
 
-#define limit(number, min, max) (((number) > (max)) ? (max) : (((number) < (min)) ? (min) : (number)))
+//#define limit(number, min, max) (((number) > (max)) ? (max) : (((number) < (min)) ? (min) : (number)))
 // processing and checking:
 
 #define toggle(pin) digitalWrite(pin, !digitalRead(pin)) 

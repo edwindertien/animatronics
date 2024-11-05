@@ -41,13 +41,16 @@
 //#define DEBUG (1)
 //#define USE_CRSF (1)
 //#define USE_DMX (1)
+//#define USE_NUNCHUCK (1)
 #include <Arduino.h>
-
+int limit(int number,int min, int max){
+  return  (((number)>(max))?(max):( ((number)<(min))?(min):(number)));}
 // important radio communication materials
 #define NUM_CHANNELS 32
+#define TRANSMIT 16
 unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
+int buttons = 0;
 
 #ifndef USE_DMX
 #include "USBhostfunctions.h"
@@ -64,12 +67,13 @@ void processScreen(int mode, int position); // look at the bottom,
 #define ACTIVE 1
 
 
-
+#ifdef USE_NUNCHUCK
 // not sure where this library comes from
 #include "nunchuck.h"
 nunchuck chuck;
 #define X_CENTER 130
 #define Y_CENTER 127
+#endif
 
 #ifdef USE_DMX
 #include "DmxInput.h"
@@ -85,6 +89,7 @@ int muxpins[] = {16,17,18,19};
 int usedChannel[]   = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};  // used channels on the mux
 int switchChannel[] = {0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0};  // switch type channels
 int invertChannel[] = {0,0,0,0,0,0,0,0,1,0,1,0,1,0,0,1};  // values that need to be inverted
+
 void initMux(){
   for(int i = 0; i<4; i++){pinMode(muxpins[i],OUTPUT);}
 }
@@ -104,7 +109,7 @@ int checkMux(int channel){
   else return 0;
 }
 
-void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, unsigned char pat, unsigned char bns, unsigned char r, unsigned char g, unsigned char b);
+void RobotWrite(int board, unsigned char *message, int messagelength);
 void RFWriteRaw(unsigned char *buffer, int length);
 
 
@@ -120,8 +125,10 @@ void setup() {
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
   display.clearDisplay();                     // start the screen
+  #ifdef USE_NUNCHUCK
   // nunchuck on I2C, sharing with Display
   chuck.begin(); // send the initilization handshake
+  #endif
   // simple analog mux on A0, controlled by pins [16..19]
   initMux();
   #ifdef USE_DMX
@@ -134,16 +141,22 @@ void setup() {
 void loop() {
   static unsigned long looptime;
   static int mode;
+  static int screentimer;
+
     
 // the 20 Hz main loop
   if (millis() > looptime + 49) {
     looptime = millis();
+    #ifdef USE_NUNCHUCK
     chuck.update(200);
+    #endif
 // get analog channels from mux
   for(int i = 0; i<16;i++){
-      channels[i] = checkMux(i)/4;
+    channels[i] = checkMux(i)/4;
     }
 // get channels from WiiNunchuck
+#ifdef USE_NUNCHUCK
+#ifdef ALAN
 if(chuck.buttons == 0) {
     channels[0] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(2);
     channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(2);
@@ -158,7 +171,13 @@ else
     channels[0] =  127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1);
     channels[1] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1);
 }
+#else
+    channels[0] =  chuck.analogStickX;
+    channels[1] =  chuck.analogStickY;
+#endif
+
    channels[6] = chuck.buttons * 64;
+#endif
    #ifdef DEBUG
    Serial.print(channels[0]);
    Serial.print(',');
@@ -182,11 +201,36 @@ else
     }
     #endif
     // send to robot (choose your channels)
-    RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
-    // for Alan:
-    // RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
+    
+  static unsigned char message [16];
+          message[0]=channels[9];
+          message[1]=channels[10];
+          message[2]=channels[3];
+          message[3]=channels[7];
+          message[4]=channels[8];
+          message[5]=channels[13];
+          message[6]=channels[12];
+          message[7]=buttons;      //buttons (midi keys)
+          message[8]=channels[14];
+          message[9]=channels[15];
+          message[10]=channels[2]; //nunchuckbuttons and joystickbutton 
+          message[11]=channels[16]; // midi cc
+          message[12]=channels[17];// midi cc
+          message[13]=channels[18];// midi cc
+          message[14]=channels[19];// midi cc
+          message[15]=channels[20];// midi cc
+          
+
+
+    #ifdef ALAN
+     RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
+    #else
+    RobotWrite(13,message,16);
+    #endif
     // show on screen
-    processScreen(0,4);
+    if(screentimer ==0) {processScreen(0,4); screentimer = 5;}
+    if(screentimer>0) screentimer--;
+
   }
 }
 //////////////////////////
@@ -309,7 +353,27 @@ void processScreen(int mode, int position){
     display.display();
 }
 
-
+void RobotWrite(int board, unsigned char *message, int messagelength) {
+  unsigned char length = messagelength+2;
+  int checksumbuffer = board + length + 0x03;
+  for(int i = 0; i< messagelength; i++){
+    checksumbuffer += message[i];
+  }
+  unsigned char checksum = ~(checksumbuffer);
+  unsigned char buff[length + 4];
+  buff[0] = 0xFF;
+  buff[1] = 0xFF;
+  buff[2] = (unsigned char) board;
+  buff[3] = length;
+  buff[4] = 0x03;
+  for(int i = 5; i<length+3; i++){
+    buff[i] = message[i-5];
+  }
+  buff[length+3] = checksum;
+  
+  RFWriteRaw(buff, length + 4);
+}
+/*
 void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, unsigned char pat, unsigned char bns, unsigned char r, unsigned char g, unsigned char b) {
   unsigned char length = 10;
   unsigned char checksum = ~( board + length + 0x03 + x + y + r + g + b + pal + pat + bns);
@@ -329,7 +393,7 @@ void RobotWrite(int board, unsigned char x, unsigned char y, unsigned char pal, 
     checksum
   };
   RFWriteRaw(buff, length + 4);
-}
+}*/
 
 /********************************************************************
    RAW SERIAL COMMUNICATION USING RS485 PROTOCOL

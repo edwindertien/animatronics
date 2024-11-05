@@ -218,14 +218,22 @@ void tuh_midi_rx_cb(uint8_t dev_addr, uint32_t num_packets)
         }
         if(buffer[0]==144){
           for(int i = 36; i<44; i++){
-            if(buffer[1]==i) channels[i-12] = 8*buffer[2];
+            if(buffer[1]==i) {
+              channels[i-12] = 8*buffer[2];
+              buttons |= 1<<(i-36);
+
+            }
           }
         }
                 if(buffer[0]==128){
           for(int i = 36; i<44; i++){
-            if(buffer[1]==i) channels[i-12] = 0;
+            if(buffer[1]==i) {
+              channels[i-12] = 0;
+              buttons &= ~(1<<(i-36));
+            }
           }
         }
+        Serial.print(buttons);
         Serial.printf("\r\n");
       }
     }

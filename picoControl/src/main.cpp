@@ -10,7 +10,7 @@
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
 
-#define USE_CRSF (1)
+//#define USE_CRSF (1)
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display
@@ -33,16 +33,20 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 // for communication with motor driver and other externals
 #include "DynamixelReader.h"
 
-int dynamixelIDs [] =       {   44,    45,   46};
-int dynamixelMaxPos [] =    {  1000, 1800, 1524}; 
-int dynamixelMinPos [] =    {  3000, 2200, 2596}; 
-int dynamixelOffset [] =    {  0,    0,    0};
+int dynamixelIDs [] =       {   40,  21,   42,   43,   44,    45,   46};
+int dynamixelMaxPos [] =    {  260, 510, 2300, 1800, 1000,  1800, 1524}; 
+int dynamixelMinPos [] =    {  460, 340, 1900, 2200, 3000,  2200, 2596}; 
+int dynamixelOffset [] =    {    0,   0,    0,    0,    0,     0,    0};
 
 // important radio communication materials
 #include "Radio.h"
-#define NUM_CHANNELS 17
-unsigned char channels[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+//#define NUM_CHANNELS 16
+//unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0 };
+//unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0 };
+
+#define NUM_CHANNELS 16
+unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // Audio: two DFRobot players on softserial uart
 #include "Audio.h"
 DFRobot_DF1201S player1, player2;
@@ -56,15 +60,16 @@ SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 #include "Action.h"
 // matching function between keypad/button register and call-back check from action list
 bool getRemoteSwitch(char button) {
-  if (channels[16] & 16 && button == 'a') return true;
-  else if (channels[16] & 32 && button == 'b') return true;
-  else return false;
+  for(int i = 0; i< 8; i++){
+    if(channels[7]& 1<<i && button == 'a'+i) return true; 
+  }
+  return false;
 }
 // important mapping of actions, buttons, relay channels and sounds
 Action myActionList[] = {
-  Action('a', 0, TOGGLE, "/bubble.mp3", &player1),
+  Action('a', 0, DIRECT, "/bubble.mp3", &player1),
   Action('b', 1, DIRECT, "/jaws.mp3", &player1),
-  Action('b', 2, TOGGLE, "", &player1),
+  Action('c', 2, TOGGLE, "", &player1),
   Action('d', 3, TOGGLE, "", &player1),
   Action('e', 4, TOGGLE, "", &player1),
   Action('f', 5, TOGGLE, "", &player1),
@@ -116,6 +121,16 @@ void setup() {
 
    for (int n = 0; n < 2; n++) {
     DynamixelWrite(dynamixelIDs[n], 28, 0); // 28 -> gain
+    DynamixelWrite(dynamixelIDs[n], 29, 0); // 28 -> gain
+    DynamixelWrite(dynamixelIDs[n], 16, 0); // (1 for data, 0 for silence)
+  
+  }
+
+   for (int n = 2; n < 7; n++) {
+    DynamixelWrite(dynamixelIDs[n], 28, 0); // 28 -> gain
+
+    DynamixelWrite(dynamixelIDs[n], 16, 0); // (1 for data, 0 for silence)
+  
   }
     // radio on Serial2
   #ifdef USE_CRSF
@@ -131,6 +146,7 @@ void setup() {
 void loop() {
   static unsigned long looptime;
   static int mode;
+  static unsigned char headMessage [8];
 // poll functions outside the 20Hz main loop
 #ifndef USE_CRSF
   RadioPoll();
@@ -163,7 +179,35 @@ if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
 
 }
 #endif
+   for (int n = 0; n < 2; n++) {
+    DynamixelWrite(dynamixelIDs[n], 34, map(channels[15],0,255,0,1023)); // 28 -> gain
 
+  
+  }
+for(int i = 2; i<7; i++){
+DynamixelWrite(dynamixelIDs[i], 28, map(channels[15],0,255,0,8));
+}
+
+
+DynamixelWrite(dynamixelIDs[0], 30, map(channels[4]-(127-channels[3]), 127, 255, dynamixelMinPos[0]-dynamixelOffset[0], dynamixelMaxPos[0]-dynamixelOffset[0]));
+DynamixelWrite(dynamixelIDs[1], 30, map(channels[4]+(127-channels[3]), 127, 255, dynamixelMinPos[1]-dynamixelOffset[1], dynamixelMaxPos[1]-dynamixelOffset[1]));
+
+DynamixelWrite(dynamixelIDs[2], 30, map(channels[5]-(127-channels[6]), 0, 255, dynamixelMinPos[2]-dynamixelOffset[2], dynamixelMaxPos[2]-dynamixelOffset[2]));
+DynamixelWrite(dynamixelIDs[3], 30, map(channels[5]+(127-channels[6]), 0, 255, dynamixelMinPos[3]-dynamixelOffset[3], dynamixelMaxPos[3]-dynamixelOffset[3]));
+
+DynamixelWrite(dynamixelIDs[4], 30, map(channels[0], 0, 255, dynamixelMinPos[4]-dynamixelOffset[4], dynamixelMaxPos[4]-dynamixelOffset[4]));
+
+DynamixelWrite(dynamixelIDs[5], 30, map(channels[1], 0, 255, dynamixelMinPos[5]-dynamixelOffset[5], dynamixelMaxPos[5]-dynamixelOffset[5]));
+DynamixelWrite(dynamixelIDs[6], 30, map(channels[1], 0, 255, dynamixelMinPos[6]-dynamixelOffset[6], dynamixelMaxPos[6]-dynamixelOffset[6]));
+
+
+for(int i = 0; i<8; i++){
+  headMessage[i] = channels[i+8];
+
+}
+headMessage[0] = channels[2];
+DynamixelWriteBuffer(10, headMessage, 8);
+//DynamixelWrite(dynamixelIDs[2], 28, map(channels[2],0,255,0,8));
 #ifdef USE_CRSF
     if (crsf.getTimeOut() > 9 && mode == ACTIVE) {
 #else

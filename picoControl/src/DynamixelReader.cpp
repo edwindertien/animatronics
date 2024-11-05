@@ -157,7 +157,7 @@ void DynamixelWriteBuf(unsigned char *buffer, int length) {
   digitalWrite(RS485_SR, LOW);
 }
 
-void DynamixelWriteBuffer(int id, char *buffer, int messagelength) {
+void DynamixelWriteBuffer(int id, unsigned char *buffer, int messagelength) {
   unsigned char length = messagelength + 2;
   unsigned char checksum;
   unsigned char transmitBuffer[20];
