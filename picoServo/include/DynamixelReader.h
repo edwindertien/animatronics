@@ -6,7 +6,6 @@
 
 #define toggle(pin) digitalWrite(pin, !digitalRead(pin)) 
 
-
 // Prototype for the function we need to call from outside
 void DynamixelPoll(void);
 void nudgeTimeOut(void);

@@ -21,7 +21,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define NODES 9
 #define LED_COUNT NODES * 37
-#define LED_PIN 2
+#define LED_PIN 5 //gp5, SCL pin on GROVE
 // Declare our NeoPixel strip object:
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -55,7 +55,7 @@ int servoMax[] { 1900, 1500, 1500, 1600, 1900, 1900};
 Servo myServo[NUMSERVOS];
 
 int servoPins[] = {
-  6,7,8,26,27,28
+  6,7,8
 };
 
 unsigned long loopTime;
@@ -73,26 +73,33 @@ void setup() {
   Serial1.begin(1000000);
   rp2040.wdt_begin(250);  // alternative for arduino wdt
 
-  strip.begin();            // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();             // Turn OFF all pixels ASAP
-  strip.setBrightness(255);  // Set BRIGHTNESS to about 1/5 (max = 255)
-
+ 
   //startServo(2);
   //startServo(1);
   //startServo(0);
 }
 
+void setup1(){
+ strip.begin();            // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();             // Turn OFF all pixels ASAP
+  strip.setBrightness(255);  // Set BRIGHTNESS to about 1/5 (max = 255)
 
-void loop() {
+}
 
-  static unsigned long patternTimer;
-  DynamixelPoll();
-  
-  if(millis() > patternTimer + 49) {
+void loop1(){
+    static unsigned long patternTimer;
+if(millis() > patternTimer + 49) {
 
     patternTimer = millis();
     updatePattern();
   }
+}
+
+void loop() {
+
+
+  DynamixelPoll();
+  
   if (millis() > loopTime + 49) {
     loopTime = millis();
     nudgeTimeOut(); // take care of message timeout.. 
@@ -119,8 +126,8 @@ void loop() {
 boolean enabled[NUMSERVOS];
 
 
-int global_brightness = 0;
-int global_speed = 10;
+volatile int global_brightness = 0;
+volatile int global_speed = 10;
 
 void ProcessDynamixelData(const unsigned char ID, const int dataLength, const unsigned char* const Data) {
   if (ID == BOARD_ID) {
@@ -166,7 +173,7 @@ void stopServo(int n) {
 
 
 void updatePattern(){
-    static int k;
+  static int k;
   static int sinvalue;
        // now for the pattern stuff 
     k++;
