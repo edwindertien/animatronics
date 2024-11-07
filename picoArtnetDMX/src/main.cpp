@@ -52,7 +52,7 @@ void callback(const uint8_t *data, uint16_t size, const ArtDmxMetadata &metadata
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
-  dmx.begin(0, pio0);
+
 
   if (!oled.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
@@ -125,11 +125,8 @@ void setup() {
 
 void loop() {
   static unsigned long screentimer;
-  dmx.write(universe, 16);
-  while (dmx.busy()) { /* Do nothing while the DMX frame transmits */
-  }
   artnet.parse();  // check if artnet packet has come and execute callback
-  /*if (millis() > screentimer + 99) {
+  if (millis() > screentimer + 99) {
     screentimer = millis();
     if(artNetTimeOut<100) artNetTimeOut++;
     oled.clearDisplay();               // start the screen
@@ -143,5 +140,14 @@ void loop() {
       oled.fillRect(n * 6, 32 - universe[n + 16] / 16, 4, universe[n + 16] / 16, SSD1306_INVERSE);
     }
     oled.display();
-  }*/
+  }
+}
+void setup1(){
+  dmx.begin(0, pio0);
+}
+
+void loop1(){
+    dmx.write(universe, 16);
+  while (dmx.busy()) { /* Do nothing while the DMX frame transmits */
+  }
 }

@@ -228,7 +228,7 @@ else
     RobotWrite(13,message,16);
     #endif
     // show on screen
-    if(screentimer ==0) {processScreen(0,4); screentimer = 5;}
+    if(screentimer ==0) {processScreen(0,4); screentimer = 2;}
     if(screentimer>0) screentimer--;
 
   }
@@ -291,8 +291,8 @@ void loop1()
 void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
-    static int menu = 1;
-   if(channels[6]>140) button = 1; else button = 0;
+    static int menu = 2;
+   if(channels[4]>140) button = 1; else button = 0;
     if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
@@ -317,13 +317,12 @@ void processScreen(int mode, int position){
       display.setCursor(0, 0);  // Start at top-left corner
       display.setTextSize(1);   // Draw 2X-scale text
       display.setTextColor(SSD1306_WHITE);
-
-     display.drawCircle(64, 32, 14, SSD1306_WHITE);
-    display.drawLine(64, 18, 64, 46, SSD1306_WHITE);
-    display.drawLine(50, 32, 78, 32, SSD1306_WHITE);
-    display.fillCircle(map(channels[0], 0, 255, 50, 78), map(channels[1], 0, 255, 18,46), 3+channels[6]/64, SSD1306_WHITE);
-
-
+#ifdef USE_NUNCHUCK
+   display.drawCircle(64, 32, 14, SSD1306_WHITE);
+   display.drawLine(64, 18, 64, 46, SSD1306_WHITE);
+   display.drawLine(50, 32, 78, 32, SSD1306_WHITE);
+   display.fillCircle(map(channels[0], 0, 255, 50, 78), map(channels[1], 0, 255, 18,46), 3+channels[6]/64, SSD1306_WHITE);
+#endif
 
     display.drawCircle(16, 16, 14, SSD1306_WHITE);
     display.drawLine(16, 2, 16, 30, SSD1306_WHITE);
