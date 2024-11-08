@@ -27,7 +27,7 @@ DmxOutput dmx;
 // Create a universe that we want to send.
 // The universe must be maximum 512 bytes + 1 byte of start code
 #define UNIVERSE_LENGTH 512
-uint8_t universe[UNIVERSE_LENGTH + 1];
+volatile uint8_t universe[UNIVERSE_LENGTH + 1];
 
 
 
@@ -108,8 +108,8 @@ void setup() {
     Serial.print(size);
     Serial.print(") :");
     
-    for (size_t i = 0; i < size + 1; i++) {
-      universe[i+1] = data[i];
+    for (size_t i = 1; i < size + 1; i++) {
+      universe[i] = data[i];
       Serial.print(data[i]);
       Serial.print(",");
     }
@@ -118,10 +118,9 @@ void setup() {
     Serial.println();
   });
 
-  // you can also use pre-defined callbacks
-  artnet.subscribeArtDmxUniverse(universe2, callback);
+}
 
-}  // end setup()
+ // end setup()
 
 void loop() {
   static unsigned long screentimer;
@@ -137,7 +136,7 @@ void loop() {
     else oled.println(frameCount);
     frameCount = 0;
     for (int n = 0; n < 32; n++) {
-      oled.fillRect(n * 6, 32 - universe[n + 16] / 16, 4, universe[n + 16] / 16, SSD1306_INVERSE);
+      oled.fillRect(n * 6, 32 - universe[n] / 16, 4, universe[n] / 16, SSD1306_INVERSE);
     }
     oled.display();
   }
@@ -147,7 +146,7 @@ void setup1(){
 }
 
 void loop1(){
-    dmx.write(universe, 16);
+    dmx.write(universe, 32);
   while (dmx.busy()) { /* Do nothing while the DMX frame transmits */
   }
 }

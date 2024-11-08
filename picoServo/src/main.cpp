@@ -21,7 +21,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define NODES 9
 #define LED_COUNT NODES * 37
-#define LED_PIN 5 //gp5, SCL pin on GROVE
+#define LED_PIN 4 //gp4, SDA pin on GROVE
 // Declare our NeoPixel strip object:
 
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -42,9 +42,9 @@ uint32_t Wheel(byte, int );
 
 
 //////////////////   x,  y, lid,   m L,  m R,
-int servoMin[] { 1100, 1500, 1800, 1400, 1100, 1100};
+int servoMin[] { 1100, 1500, 1300, 1400, 1100, 1100};
 int servoCenter[] { 1500, 1580, 1800, 1500, 1500, 1500};
-int servoMax[] { 1900, 1500, 1500, 1600, 1900, 1900};
+int servoMax[] { 1900, 1500, 1800, 1600, 1900, 1900};
 
 #define NUMSERVOS 3
 
@@ -67,7 +67,7 @@ unsigned long loopTime;
 
 void setup() {
    Serial.begin(115200);
-  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(SS, OUTPUT);
   // communication
   Serial1.begin(1000000);
@@ -99,7 +99,7 @@ void loop() {
 
 
   DynamixelPoll();
-  
+  rp2040.wdt_reset();  // pat the dog
   if (millis() > loopTime + 49) {
     loopTime = millis();
     nudgeTimeOut(); // take care of message timeout.. 
@@ -107,9 +107,9 @@ void loop() {
   
     if (getTimeOut() > 20)  // safe values!!
     {
-      digitalWrite(LED_GREEN, HIGH);
+      digitalWrite(LED_BUILTIN, HIGH);
       Serial.println("no data");
-    //  stopServos();
+      stopServos();
     }
   }
 
@@ -126,13 +126,13 @@ void loop() {
 boolean enabled[NUMSERVOS];
 
 
-volatile int global_brightness = 0;
-volatile int global_speed = 10;
+volatile int global_brightness = 10;
+volatile int global_speed = 200;
 
 void ProcessDynamixelData(const unsigned char ID, const int dataLength, const unsigned char* const Data) {
   if (ID == BOARD_ID) {
-    toggle(LED_GREEN);
-    rp2040.wdt_reset();  // pat the dog
+    toggle(LED_BUILTIN);
+    
 
     if (Data[0] == 0x03) {  // dynamixel write
       if(Data[8]>1){
@@ -140,8 +140,8 @@ void ProcessDynamixelData(const unsigned char ID, const int dataLength, const un
       //if (!enabled[1])startServo(1);
       if (!enabled[2])startServo(2);
       myServo[0].writeMicroseconds(map(Data[1], 0, 255, servoMin[0], servoMax[0]));
-      //myServo[1].writeMicroseconds(map(Data[2], 0, 255, servoMin[1], servoMax[1]));
-      myServo[2].writeMicroseconds(map(Data[3], 0, 255, servoMin[2], servoMax[2]));
+      //myServo[1].writeMicroseconds(map(Data[3], 0, 255, servoMin[2], servoMax[2]));
+      myServo[2].writeMicroseconds(map(Data[3], 0, 255, servoMax[2], servoMin[2]));
       }
       else stopServos();
       global_brightness = map(Data[4], 0, 255, 0, 50);
