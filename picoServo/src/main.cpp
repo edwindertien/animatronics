@@ -164,6 +164,7 @@ void stopServos() {
   }
 }
 void stopServo(int n) {
+ // Serial.println("stopping");
   if (n < NUMSERVOS) {
     myServo[n].detach();
     enabled[n] = false;
