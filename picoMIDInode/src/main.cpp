@@ -3,7 +3,11 @@
  * it functions as USB-MIDI device, using 
  * I2C sensors / M5 potentiometer array and OLED for feedback
  * 
- * 
+ * It uses the following libraries:
+ * - M5Angle8
+ * - usb_midi_host (from rppicomidi) + Adafruit TinyUSB
+ * - Adafruit unified sensor + BNO055
+ * - U8g2 library for OLED
  */
 
 
