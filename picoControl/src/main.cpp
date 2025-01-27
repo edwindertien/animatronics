@@ -10,7 +10,7 @@
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
 
-//#define USE_CRSF (1)
+#define USE_CRSF (1)
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display

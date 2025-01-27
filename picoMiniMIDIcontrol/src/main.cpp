@@ -1,13 +1,6 @@
 /******************************************************************
- * This source uses the picoServo board and RPI PICO W
- * it functions as USB-MIDI device, using 
- * I2C sensors / M5 potentiometer array and OLED for feedback
- * 
- * It uses the following libraries:
- * - M5Angle8
- * - usb_midi_host (from rppicomidi) + Adafruit TinyUSB
- * - Adafruit unified sensor + BNO055
- * - U8g2 library for OLED
+ * This is a source for PICO - emulating a simple
+ * MIDI control panel using an M5-8channel encoder bar on I2C 
  */
 
 
@@ -117,7 +110,7 @@ void loop() {
   }
   if (millis() > looptime + 9) {
     looptime = millis();
-    Serial.println(value[0]);
+  //  Serial.println(value[0]);
     for (int i = 0; i < 8; i++) {
       value[i] = MM.getAbsCounter(i);
       if(value[i]>127) value[i]=127;
@@ -144,24 +137,24 @@ void loop() {
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
   // Log when a note is pressed.
-  Serial.print("Note on: channel = ");
-  Serial.print(channel);
+  // Serial.print("Note on: channel = ");
+  // Serial.print(channel);
 
-  Serial.print(" pitch = ");
-  Serial.print(pitch);
+  // Serial.print(" pitch = ");
+  // Serial.print(pitch);
 
-  Serial.print(" velocity = ");
-  Serial.println(velocity);
+  // Serial.print(" velocity = ");
+  // Serial.println(velocity);
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
   // Log when a note is released.
-  Serial.print("Note off: channel = ");
-  Serial.print(channel);
+  // Serial.print("Note off: channel = ");
+  // Serial.print(channel);
 
-  Serial.print(" pitch = ");
-  Serial.print(pitch);
+  // Serial.print(" pitch = ");
+  // Serial.print(pitch);
 
-  Serial.print(" velocity = ");
-  Serial.println(velocity);
+  // Serial.print(" velocity = ");
+  // Serial.println(velocity);
 }
