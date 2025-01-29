@@ -14,6 +14,7 @@ Currently there are three physical designs:
 - the [picoMiniMIDIcontrol](/picoMiniMIDIcontrol/) uses a grove 8-knob module and a pico to act as a very basic USB-midi control panel. It has been used as complementary input device for the picoRemote device
 - the [picoMIDInode](/picoMIDInode/) uses the picoServo board as USB-MIDI host (with a USB-A socket wired to the 'servo' output pins) and acts as USB-MIDI device
 
-
 Todo: check scalability of images: [markdown cheatsheet](https://www.markdownguide.org/cheat-sheet/)
-![pico Artnet PCB](images/picoArtnet.jpg)
+
+or can I have the picture in non-markdown with
+<img src="images/picoArtnet.jpg" alt="pico Artnet PCB" width="300">
