@@ -17,4 +17,5 @@ Currently there are three physical designs:
 Todo: check scalability of images: [markdown cheatsheet](https://www.markdownguide.org/cheat-sheet/)
 
 or can I have the picture in non-markdown with
+
 <img src="images/picoArtnet.jpg" alt="pico Artnet PCB" width="300">
