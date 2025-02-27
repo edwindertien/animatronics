@@ -11,6 +11,7 @@
 // https://arduino-pico.readthedocs.io/en/latest/index.html
 
 #define USE_CRSF (1)
+//#define USE_AUDIO (1)
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display
@@ -92,6 +93,35 @@ CRSF crsf;
 
 #endif
 
+void initMotor(){
+  pinMode(18,OUTPUT);
+  pinMode(19,OUTPUT);
+  pinMode(20,OUTPUT);
+  analogWrite(20,0);
+  digitalWrite(18,LOW);
+  digitalWrite(19,LOW);
+}
+void setMotor(int value){
+  if(value>0){
+    digitalWrite(18,HIGH);
+    digitalWrite(19,LOW);
+    analogWrite(20,value);
+
+  }
+  else if (value<0){
+    digitalWrite(18,LOW);
+    digitalWrite(19,HIGH);
+    analogWrite(20,-value);
+
+  }
+  else {
+    analogWrite(20,0);
+    digitalWrite(18,LOW);
+    digitalWrite(19,LOW);
+  }
+}
+
+
 void setup() {
   Serial.begin(115200);
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
@@ -110,8 +140,9 @@ void setup() {
   pwm.setPWMFreq(16000);
   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
   // audio players
+ #ifdef USE_AUDIO
   audioInit(&player1,&player1port,&player2,&player2port);
-
+ #endif 
 
 // dynamixel
   Serial1.begin(1000000);
@@ -139,6 +170,8 @@ void setup() {
   RFinit();
   RFsetSettings(2);
   #endif
+
+  initMotor();
 }
 
 
@@ -162,6 +195,7 @@ void loop() {
 if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
         for (int n = 0; n < 8; n++) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
+      setMotor(map(channels[1],0,255,-255,255));
     }
     crsf.UpdateChannels();
 
@@ -218,6 +252,7 @@ if (getTimeOut() > 9 && mode == ACTIVE) {
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
+      setMotor(0);
     }
 #ifdef USE_CRSF
     else if (crsf.getTimeOut() < 1 && mode == IDLE) {
