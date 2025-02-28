@@ -46,8 +46,8 @@ int dynamixelOffset [] =    {    0,   0,    0,    0,    0,     0,    0};
 //unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0 };
 
 #define NUM_CHANNELS 16
-unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 127, 0, 128, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 127, 0, 128, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // Audio: two DFRobot players on softserial uart
 #include "Audio.h"
 DFRobot_DF1201S player1, player2;
@@ -61,21 +61,24 @@ SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 #include "Action.h"
 // matching function between keypad/button register and call-back check from action list
 bool getRemoteSwitch(char button) {
+
+
   for(int i = 0; i< 8; i++){
-    if(channels[7]& 1<<i && button == 'a'+i) return true; 
-  }
+    if(((channels[4]/127)+2*(abs(2-channels[5]/64))+8*(abs(2-channels[6]/64)) + 32*(channels[7]/127)) & 1<<i && button == 'a'+i) return true; 
+
+  } 
   return false;
 }
 // important mapping of actions, buttons, relay channels and sounds
 Action myActionList[] = {
   Action('a', 0, DIRECT, "/bubble.mp3", &player1),
   Action('b', 1, DIRECT, "/jaws.mp3", &player1),
-  Action('c', 2, TOGGLE, "", &player1),
-  Action('d', 3, TOGGLE, "", &player1),
-  Action('e', 4, TOGGLE, "", &player1),
-  Action('f', 5, TOGGLE, "", &player1),
-  Action('g', 6, TOGGLE, "", &player1),
-  Action('h', 7, TOGGLE, "", &player1)
+  Action('c', 2, DIRECT, "", &player1),
+  Action('d', 3, DIRECT, "", &player1),
+  Action('e', 4, DIRECT, "", &player1),
+  Action('f', 5, DIRECT, "", &player1),
+  Action('g', 6, DIRECT, "", &player1),
+  Action('h', 7, DIRECT, "", &player1)
 };
 // and here the program starts
 void writeRelay(int relay, bool state) {
@@ -93,35 +96,10 @@ CRSF crsf;
 
 #endif
 
-void initMotor(){
-  pinMode(18,OUTPUT);
-  pinMode(19,OUTPUT);
-  pinMode(20,OUTPUT);
-  analogWrite(20,0);
-  digitalWrite(18,LOW);
-  digitalWrite(19,LOW);
-}
-void setMotor(int value){
-  if(value>0){
-    digitalWrite(18,HIGH);
-    digitalWrite(19,LOW);
-    analogWrite(20,value);
+#include <Motor.h>
 
-  }
-  else if (value<0){
-    digitalWrite(18,LOW);
-    digitalWrite(19,HIGH);
-    analogWrite(20,-value);
-
-  }
-  else {
-    analogWrite(20,0);
-    digitalWrite(18,LOW);
-    digitalWrite(19,LOW);
-  }
-}
-
-
+Motor motorLeft(18, 19, 20);  // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorRight(26, 27, 28); // 
 void setup() {
   Serial.begin(115200);
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
@@ -170,8 +148,6 @@ void setup() {
   RFinit();
   RFsetSettings(2);
   #endif
-
-  initMotor();
 }
 
 
@@ -195,7 +171,10 @@ void loop() {
 if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
         for (int n = 0; n < 8; n++) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
-      setMotor(map(channels[1],0,255,-255,255));
+//     motorLeft.setSpeed(map(channels[1],0,255,-255,255));
+//     motorRight.setSpeed(map(channels[1],0,255,-255,255));
+     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1],0,255,-255,255),map(channels[0],0,255,-255,255)));
+     motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1],0,255,-255,255),map(channels[0],0,255,-255,255)));
     }
     crsf.UpdateChannels();
 
@@ -252,7 +231,8 @@ if (getTimeOut() > 9 && mode == ACTIVE) {
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
-      setMotor(0);
+      motorLeft.setSpeed(0);
+      motorRight.setSpeed(0);
     }
 #ifdef USE_CRSF
     else if (crsf.getTimeOut() < 1 && mode == IDLE) {
