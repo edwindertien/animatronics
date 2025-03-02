@@ -12,6 +12,7 @@
 
 #define USE_CRSF (1)
 //#define USE_AUDIO (1)
+#define MAX_SPEED 100
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display
 // OLED display
@@ -65,6 +66,9 @@ bool getRemoteSwitch(char button) {
 
   for(int i = 0; i< 8; i++){
     if(((channels[4]/127)+2*(abs(2-channels[5]/64))+8*(abs(2-channels[6]/64)) + 32*(channels[7]/127)) & 1<<i && button == 'a'+i) return true; 
+    if(channels[5]<10) {digitalWrite(21,HIGH);digitalWrite(22,LOW);}
+    else if(channels[5]>250) {digitalWrite(21,LOW);digitalWrite(22,HIGH);}
+    else {digitalWrite(21,LOW);digitalWrite(22,LOW);}
 
   } 
   return false;
@@ -122,6 +126,9 @@ void setup() {
   audioInit(&player1,&player1port,&player2,&player2port);
  #endif 
 
+pinMode(22,OUTPUT);
+pinMode(21,OUTPUT);
+
 // dynamixel
   Serial1.begin(1000000);
   Serial1.setTX(0);
@@ -173,10 +180,12 @@ if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
 //     motorLeft.setSpeed(map(channels[1],0,255,-255,255));
 //     motorRight.setSpeed(map(channels[1],0,255,-255,255));
-     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1],0,255,-255,255),map(channels[0],0,255,-255,255)));
-     motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1],0,255,-255,255),map(channels[0],0,255,-255,255)));
+     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],0,255,-MAX_SPEED,MAX_SPEED)));
+     motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],0,255,-MAX_SPEED,MAX_SPEED)));
+
     }
     crsf.UpdateChannels();
+
 
       
       
@@ -270,7 +279,7 @@ void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
     static int menu;
-     button = !digitalRead(PUSH_BUTTON);
+  //   button = !digitalRead(PUSH_BUTTON);
     if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
     oldbutton = button;
