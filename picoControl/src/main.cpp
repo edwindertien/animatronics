@@ -278,7 +278,7 @@ void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data) {
 void processScreen(int mode, int position){
 // menu and button variable
     static bool button, oldbutton;
-    static int menu;
+    static int menu = 1;
   //   button = !digitalRead(PUSH_BUTTON);
     if (button && !oldbutton) menu++;
     if (menu > 2) menu = 0;
