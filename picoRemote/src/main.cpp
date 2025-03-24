@@ -40,6 +40,7 @@
 //#define DEBUG (1)
 #define USE_CRSF (1)
 //#define USE_DMX (1)
+//#define USE_USB_MIDI (1)
 #define USE_NUNCHUCK (1)
 #include <Arduino.h>
 int limit(int number,int min, int max){
@@ -63,7 +64,7 @@ unsigned int buttons = 0;
 
 #ifdef USE_CRSF
 // for CRSF projects use the following mapping
-unsigned char channelMap[CRSF_MAX_CHANNEL] = {17,18,19,7,8,13,12,18,14,15,18,19,20,21,22,23};
+unsigned char channelMap[CRSF_MAX_CHANNEL] = {16,17,18,19,20,21,22,23,16,17,18,19,20,21,22,23};
 #else
 // for Klara use the following mapping
 unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,21,22,23};
@@ -71,10 +72,6 @@ unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,2
 #endif
 
 
-
-#ifndef USE_DMX
-#include "USBhostfunctions.h"
-#endif
 
 // OLED display
 #include <Wire.h>  // the I2C communication lib for the display
@@ -93,6 +90,12 @@ nunchuck chuck;
 #define Y_CENTER 127
 #endif
 
+// for using USB_host
+#ifdef USE_USB_MIDI
+#include "USBhostfunctions.h"
+#endif
+
+// and for using DMX input channels
 #ifdef USE_DMX
 #include "DmxInput.h"
 DmxInput dmxInput;
@@ -134,52 +137,49 @@ void setup() {
   // for debug
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
-  // for RF
 
 #ifdef USE_CRSF
-  crsfInit();
-  #else
-  Serial2.setRX(9);  // Radio 2, APC220
+  crsfInit();        // CRSF radio on Serial1
+#else
+  Serial2.setRX(9);  // APC220 433MHz radio on Serial2
   Serial2.setTX(8);
   Serial2.begin(9600);
 #endif
 
-  #ifdef USE_NUNCHUCK
-  // nunchuck on I2C, sharing with Display
+#ifdef USE_NUNCHUCK
+  // nunchuck on I2C, sharing bus with Display
   chuck.begin(); // send the initilization handshake
-  #endif
+#endif
   // simple analog mux on A0, controlled by pins [16..19]
   initMux();
 
-  #ifdef USE_DMX
+#ifdef USE_DMX
   // dmx on Serial 1 (GPIO 0 input)
   dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
   dmxInput.read_async(buffer);  // no-wait code
-  #endif
-      // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
-      display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
-      display.clearDisplay();                     // start the screen
+#endif
+  // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
+  display.clearDisplay();                     // start the screen
 }
 
 void loop() {
   static unsigned long looptime;
-  static int mode;
-  static int screentimer;
   
 #ifdef USE_CRSF
-  crsfCallback();
+  crsfCallback(); // polling, timing is inside the callback
 #endif
     
 // the 20 Hz main loop
   if (millis() > looptime + 49) {
     looptime = millis();
     if(digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN,LOW); else digitalWrite(LED_BUILTIN,HIGH);
-    #ifdef USE_NUNCHUCK
+#ifdef USE_NUNCHUCK
     chuck.update(200);
-    #endif
-// get analog channels from mux
-  for(int i = 0; i<16;i++){
-    channels[i] = checkMux(i)/4;
+#endif
+    // get analog channels from mux
+    for(int i = 0; i<16;i++){
+      channels[i] = checkMux(i)/4;
     }
 // get channels from WiiNunchuck
 #ifdef USE_NUNCHUCK
@@ -188,7 +188,7 @@ void loop() {
     channels[18] = chuck.buttons * 64;
 #endif
 // get channels from DMX  
-   #ifdef USE_DMX 
+#ifdef USE_DMX 
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
             channels[i+19] = 0;
@@ -202,7 +202,7 @@ void loop() {
             channels[i+19] = buffer[i+1+DMX_OFFSET];
           }
     }
-    #endif
+#endif
     // send to robot (choose your channels)
 #ifdef USE_CRSF  
     for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
@@ -216,13 +216,13 @@ void loop() {
     }
     RobotWrite(13,message,16);
 #endif
-  }
+  } // end of looptime
   // process the display
   static unsigned long screentime;
   if(millis()>screentime+99){
     screentime = millis();
     processScreen(1,4); 
-}
+  }
 }
 //////////////////////////
 // USB handling on Core1
@@ -233,7 +233,7 @@ void setup1() {
   // while (!Serial) {
   //  delay(100);   // wait for native usb
   // }
- #ifdef USE_DMX
+ #ifdef USE_USB_MIDI
   Serial.printf("Core1 setup to run TinyUSB host with pio-usb\r\n");
 
   // Check for CPU frequency, must be multiple of 120Mhz for bit-banging USB
@@ -275,7 +275,7 @@ void setup1() {
 
 // core1's loop
 void loop1(){ 
-  #ifdef USE_DMX
+  #ifdef USE_USB_MIDI
   USBHost.task();
   #endif
 }

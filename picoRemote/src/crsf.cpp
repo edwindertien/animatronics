@@ -1,3 +1,9 @@
+//
+// more info and explanation on crsf and elrs:
+// https://flymod.net/en/txt/expresslrs_information
+// manual for setting up elrs build environment
+// https://www.expresslrs.org/software/toolchain-install/#selecting-the-latest-release
+
 #include "crsf.h"
 
 unsigned char crsfPacket[CRSF_PACKET_SIZE];
