@@ -64,7 +64,7 @@ unsigned int buttons = 0;
 
 #ifdef USE_CRSF
 // for CRSF projects use the following mapping
-unsigned char channelMap[CRSF_MAX_CHANNEL] = {16,17,18,19,20,21,22,23,16,17,18,19,20,21,22,23};
+unsigned char channelMap[CRSF_MAX_CHANNEL] = {16,17,18,17,3,1,2,0,0,0,0,0,0,0,0,0};
 #else
 // for Klara use the following mapping
 unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,21,22,23};
@@ -77,7 +77,7 @@ unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,2
 #include <Wire.h>  // the I2C communication lib for the display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 64, &Wire);
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position); // look at the bottom, 
 
 // NUNCHUCK
@@ -107,24 +107,31 @@ volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS
 
 // data used for the multiplexer. This is fixed at 16 channels
 int muxpins[] = {16,17,18,19};
-int usedChannel[]   = {0,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1};  // used channels on the mux
-int switchChannel[] = {0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0};  // switch type channels
-int invertChannel[] = {0,0,0,0,0,0,0,0,1,0,1,0,1,0,0,1};  // values that need to be inverted
+int usedChannel[]   = {1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0};  // used channels on the mux
+int switchChannel[] = {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0};  // switch type channels
+int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
 
 void initMux(){
   for(int i = 0; i<4; i++){pinMode(muxpins[i],OUTPUT);}
+  
 }
 int checkMux(int channel){
   for(int i = 0; i<4; i++){
     if(channel & (1<<i)) {digitalWrite(muxpins[i],HIGH);} else {digitalWrite(muxpins[i],LOW);}
   }
+  int value = analogRead(A0);
   if(usedChannel[channel]){
-    if(switchChannel[channel]){ 
-      if(analogRead(A0)>100) return 0; else return 4095;
+    if(switchChannel[channel]==1){ 
+      if(value>100) return 0; else return 1023;
+    }
+    else if(switchChannel[channel]==2){ 
+      if(value<200) return 1023; 
+      else if (value>200 && value<1000) return 511;
+      else return 0;
     }
     else {
-      if(invertChannel[channel]) return(4095-analogRead(A0));
-      else return analogRead(A0);
+      if(invertChannel[channel]) return(4095-value);
+      else return value;
     }
   }
   else return 0;
@@ -183,8 +190,16 @@ void loop() {
     }
 // get channels from WiiNunchuck
 #ifdef USE_NUNCHUCK
-    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(2-(chuck.buttons/2.0));
-    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(2-(chuck.buttons/2.0));
+
+  
+  if (chuck.buttons > 1){ // 2 of 3
+    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1.5);
+    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1.5);
+  }
+  else {
+    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(2.0);
+    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(2.0);
+  }
     channels[18] = chuck.buttons * 64;
 #endif
 // get channels from DMX  

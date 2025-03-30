@@ -62,16 +62,28 @@ SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 #include "Action.h"
 // matching function between keypad/button register and call-back check from action list
 bool getRemoteSwitch(char button) {
+  if(channels[5]<10) {digitalWrite(21,HIGH);digitalWrite(22,LOW);}
+  else if(channels[5]>250) {digitalWrite(21,LOW);digitalWrite(22,HIGH);}
+  else {digitalWrite(21,LOW);digitalWrite(22,LOW);}
+
+  if(channels[4]>250 && button == 'a'+0) return true; 
+  else if(channels[6]<10 && button == 'a'+3) return true; 
+  else if(channels[6]>250 && button == 'a'+4) return true; 
+ // if(channels[6]>250 && button == 'a'+5) return true; else return false;
+   else if(channels[7]>250 && button == 'a'+5) return true; 
+   else return false;
 
 
-  for(int i = 0; i< 8; i++){
-    if(((channels[4]/127)+2*(abs(2-channels[5]/64))+8*(abs(2-channels[6]/64)) + 32*(channels[7]/127)) & 1<<i && button == 'a'+i) return true; 
-    if(channels[5]<10) {digitalWrite(21,HIGH);digitalWrite(22,LOW);}
-    else if(channels[5]>250) {digitalWrite(21,LOW);digitalWrite(22,HIGH);}
-    else {digitalWrite(21,LOW);digitalWrite(22,LOW);}
 
-  } 
-  return false;
+  // for(int i = 0; i< 8; i++){
+    
+  //   if(((channels[4]/127)+2*(abs(2-channels[5]/63))+8*(abs(2-channels[6]/63)) + 32*(channels[7]/127)) & 1<<i && button == 'a'+i) return true; 
+  //   if(channels[5]<10) {digitalWrite(21,HIGH);digitalWrite(22,LOW);}
+  //   else if(channels[5]>250) {digitalWrite(21,LOW);digitalWrite(22,HIGH);}
+  //   else {digitalWrite(21,LOW);digitalWrite(22,LOW);}
+
+  // } 
+  // return false;
 }
 // important mapping of actions, buttons, relay channels and sounds
 Action myActionList[] = {
@@ -180,8 +192,8 @@ if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
 //     motorLeft.setSpeed(map(channels[1],0,255,-255,255));
 //     motorRight.setSpeed(map(channels[1],0,255,-255,255));
-     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],0,255,-MAX_SPEED,MAX_SPEED)));
-     motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],0,255,-MAX_SPEED,MAX_SPEED)));
+     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],255,0,-MAX_SPEED,MAX_SPEED)));
+     motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1],0,255,-MAX_SPEED,MAX_SPEED),map(channels[0],255,0,-MAX_SPEED,MAX_SPEED)));
 
     }
     crsf.UpdateChannels();

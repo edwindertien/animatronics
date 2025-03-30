@@ -1,0 +1,1 @@
+difference(){cube([7,14,12.5]);translate([0,1,10.5])cube([15,12,5]);}
