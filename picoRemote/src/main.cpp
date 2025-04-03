@@ -49,8 +49,8 @@ int limit(int number,int min, int max){
 // the total channels (inputs) for the system to work with currently set at 32
 // channels consist of [array of mux values][array of chuck values][array of dmx values]  
 #define NUM_CHANNELS 32
-unsigned char channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-unsigned char saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+unsigned int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 // only used for MIDI
 unsigned int buttons = 0;
 
@@ -64,7 +64,7 @@ unsigned int buttons = 0;
 
 #ifdef USE_CRSF
 // for CRSF projects use the following mapping
-unsigned char channelMap[CRSF_MAX_CHANNEL] = {16,17,18,17,3,1,2,0,0,0,0,0,0,0,0,0};
+unsigned char channelMap[CRSF_MAX_CHANNEL] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 #else
 // for Klara use the following mapping
 unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,21,22,23};
@@ -77,7 +77,7 @@ unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,2
 #include <Wire.h>  // the I2C communication lib for the display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 64, &Wire1);
 void processScreen(int mode, int position); // look at the bottom, 
 
 // NUNCHUCK
@@ -107,8 +107,8 @@ volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS
 
 // data used for the multiplexer. This is fixed at 16 channels
 int muxpins[] = {16,17,18,19};
-int usedChannel[]   = {1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0};  // used channels on the mux
-int switchChannel[] = {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0};  // switch type channels
+int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // used channels on the mux
+int switchChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};  // switch type channels
 int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
 
 void initMux(){
@@ -140,9 +140,17 @@ int checkMux(int channel){
 void RobotWrite(int board, unsigned char *message, int messagelength);
 void RFWriteRaw(unsigned char *buffer, int length);
 
+#include <keypad.h>
+// Define keypad pins
+//                   C1 C2 C3  R1  R2  R3  R4
+int keypadPins[] = { 2, 3, 11, 12, 13, 14, 15 };
+// Create Keypad object
+keypad keypad(keypadPins, 7);
+
 void setup() {
   // for debug
   pinMode(LED_BUILTIN, OUTPUT);
+
   Serial.begin(115200);
 
 #ifdef USE_CRSF
@@ -166,8 +174,14 @@ void setup() {
   dmxInput.read_async(buffer);  // no-wait code
 #endif
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
+  // In the constructor #Wire1 has been passed
+  Wire1.setSCL(7);
+  Wire1.setSDA(6);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
   display.clearDisplay();                     // start the screen
+  //
+  //
+  keypad.begin();  // Initialize the keypad
 }
 
 void loop() {
@@ -220,9 +234,36 @@ void loop() {
 #endif
     // send to robot (choose your channels)
 #ifdef USE_CRSF  
-    for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
-      rcChannels[i] = map(channels[channelMap[i]],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    }
+    unsigned int keyValue = keypad.getKeypad();
+    unsigned int switches;
+    if(channels[10]<64) switches +=1;
+    if(channels[11]<64) switches +=2;
+    if(channels[12]<64) switches +=4;
+    if(channels[15]<64) switches +=8;
+    if(channels[13]<64) switches += 16;
+    if(channels[13]>180) switches +=32;
+    if(channels[14]<64) switches += 64;
+    if(channels[14]>180) switches += 128;
+    // for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
+    //   rcChannels[i] = map(channels[channelMap[i]],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    // }
+    // or a list 
+    rcChannels[0] = map(channels[16],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[1] = map(channels[17],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[2] = map(keyValue & 0xFF,0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[3] = map((keyValue>>8 & 0x0F) + channels[18],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[4] = map(switches,0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[5] = map(channels[4],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[6] = map(channels[5],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[7] = map(channels[6],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[8] = map(channels[7],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[9] = map(channels[0],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[10] = map(channels[1],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[11] = map(channels[2],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[12] = map(channels[3],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+    rcChannels[13] = map(channels[8],0,150,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+
+
 #else
     // RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
     static unsigned char message [RF_MAX_CHANNEL];
@@ -236,6 +277,8 @@ void loop() {
   static unsigned long screentime;
   if(millis()>screentime+99){
     screentime = millis();
+    
+
     processScreen(1,4); 
   }
 }

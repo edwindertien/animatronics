@@ -188,7 +188,9 @@ void loop() {
 #ifdef USE_CRSF
     crsf.GetCrsfPacket(); 
 if (crsf.crsfData[1] == 24 && mode==ACTIVE) {
-        for (int n = 0; n < 8; n++) {
+  // in 16 channel mode the last tow channels are used by ELRS for other things
+  // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
+        for (int n = 0; n < 14; n++) {
       channels[n] =map(crsf.channels[n],CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX,0,255);  //write
 //     motorLeft.setSpeed(map(channels[1],0,255,-255,255));
 //     motorRight.setSpeed(map(channels[1],0,255,-255,255));
@@ -306,10 +308,10 @@ void processScreen(int mode, int position){
       if (mode == IDLE) display.println(F("IDLE"));
     } else if (menu == 1) {
       for (int n = 0; n < NUM_CHANNELS; n++) {
-        display.setCursor(0, 0);  // Start at top-left corner
-        display.setTextSize(1);   // Draw 2X-scale text
-        display.setTextColor(SSD1306_WHITE);
-        display.println(F("1234567890 received"));
+        //display.setCursor(0, 0);  // Start at top-left corner
+        //display.setTextSize(1);   // Draw 2X-scale text
+        //display.setTextColor(SSD1306_WHITE);
+        //display.println(F("1234567890 received"));
         display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
       }
     } else if (menu == 2) {

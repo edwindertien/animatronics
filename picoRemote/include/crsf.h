@@ -1,3 +1,6 @@
+// a definition of (most of ) the CRSF protocol can be found here: 
+// https://github.com/tbs-fpv/tbs-crsf-spec/blob/main/crsf.md
+
 #ifndef CRSF_H
 #define CRSF_H
 

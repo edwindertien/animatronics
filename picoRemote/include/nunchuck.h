@@ -1,5 +1,13 @@
+// Original nunchuck:  signal:    ext. cable    black nunchuck:
+// white -             ground     orange        white
+// red -               3.3+v      black         red
+// green -             data  A4   blue          blue
+// yellow -            clock A5   red           green
+
 #include <Wire.h>
 #include <math.h>
+
+
 
 class nunchuck {
 public:
