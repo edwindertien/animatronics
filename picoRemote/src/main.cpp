@@ -1,13 +1,7 @@
 /////////////////////////////////////
 // Universal Remote 
-// APC220 RF transmitter
-// and nunchuck (no library)
-// Original nunchuck:  signal:    ext. cable    black nunchuck:
-// white -             ground     orange        white
-// red -               3.3+v      black         red
-// green -             data  A4   blue          blue
-// yellow -            clock A5   red           green
-//
+// using CRSF and/or APC220 RF transmitter
+
 // The following channel assignment is proposed
 // 1 = 424
 // 2 = 434
@@ -37,48 +31,28 @@
  All text above, and the splash screen below must be included in
  any redistribution
 *********************************************************************/
-//#define DEBUG (1)
-#define USE_CRSF (1)
-//#define USE_DMX (1)
-//#define USE_USB_MIDI (1)
-#define USE_NUNCHUCK (1)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <Arduino.h>
-int limit(int number,int min, int max){
-  return  (((number)>(max))?(max):( ((number)<(min))?(min):(number)));}
-
+#include <Wire.h>  // the I2C communication lib for the display and other things
+#include "config.h"
 // the total channels (inputs) for the system to work with currently set at 32
-// channels consist of [array of mux values][array of chuck values][array of dmx values]  
+// channels consist of [array of mux values 16][array of chuck values 3][keypad 1][arrays of switches 4[array of dmx values 8]  
 #define NUM_CHANNELS 32
 unsigned int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-unsigned int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 // only used for MIDI
 unsigned int buttons = 0;
-
-// just like CRSF, currently the number of transmit channels using APC220 is also 16
-// for ALAN, this value is 8 (see the )
-#define RF_MAX_CHANNEL 16
 
 #ifdef USE_CRSF
 #include "crsf.h"
 #endif
 
-#ifdef USE_CRSF
-// for CRSF projects use the following mapping
-unsigned char channelMap[CRSF_MAX_CHANNEL] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
-#else
-// for Klara use the following mapping
-unsigned char channelMap[RF_MAX_CHANNEL] = {9,10,3,7,8,13,12,18,14,15,18,19,20,21,22,23};
-//unsigned char channelMap[8] = {0,1,19,20,21,22,23,24}; // for ALAN
-#endif
-
-
-
 // OLED display
-#include <Wire.h>  // the I2C communication lib for the display
+#ifdef USE_OLED
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 64, &Wire1);
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire1);
 void processScreen(int mode, int position); // look at the bottom, 
+#endif
 
 // NUNCHUCK
 #ifdef USE_NUNCHUCK
@@ -106,59 +80,33 @@ volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS
 #endif
 
 // data used for the multiplexer. This is fixed at 16 channels
+#include "muxcontrol.h"
 int muxpins[] = {16,17,18,19};
-int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // used channels on the mux
-int switchChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1};  // switch type channels
-int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
 
-void initMux(){
-  for(int i = 0; i<4; i++){pinMode(muxpins[i],OUTPUT);}
-  
-}
-int checkMux(int channel){
-  for(int i = 0; i<4; i++){
-    if(channel & (1<<i)) {digitalWrite(muxpins[i],HIGH);} else {digitalWrite(muxpins[i],LOW);}
-  }
-  int value = analogRead(A0);
-  if(usedChannel[channel]){
-    if(switchChannel[channel]==1){ 
-      if(value>100) return 0; else return 1023;
-    }
-    else if(switchChannel[channel]==2){ 
-      if(value<200) return 1023; 
-      else if (value>200 && value<1000) return 511;
-      else return 0;
-    }
-    else {
-      if(invertChannel[channel]) return(4095-value);
-      else return value;
-    }
-  }
-  else return 0;
-}
 
-void RobotWrite(int board, unsigned char *message, int messagelength);
-void RFWriteRaw(unsigned char *buffer, int length);
 
+MuxControl mux(muxpins, 4);
+
+#ifdef USE_APC
+#include "apcrf.h"
+apcRF myTransmitter(22);
+#endif
+
+#ifdef USE_KEYPAD
 #include <keypad.h>
 // Define keypad pins
 //                   C1 C2 C3  R1  R2  R3  R4
 int keypadPins[] = { 2, 3, 11, 12, 13, 14, 15 };
-// Create Keypad object
-keypad keypad(keypadPins, 7);
+keypad mypad(keypadPins, 7);
+#endif
 
 void setup() {
   // for debug
   pinMode(LED_BUILTIN, OUTPUT);
-
   Serial.begin(115200);
 
 #ifdef USE_CRSF
   crsfInit();        // CRSF radio on Serial1
-#else
-  Serial2.setRX(9);  // APC220 433MHz radio on Serial2
-  Serial2.setTX(8);
-  Serial2.begin(9600);
 #endif
 
 #ifdef USE_NUNCHUCK
@@ -166,32 +114,34 @@ void setup() {
   chuck.begin(); // send the initilization handshake
 #endif
   // simple analog mux on A0, controlled by pins [16..19]
-  initMux();
+  mux.initMux();
 
 #ifdef USE_DMX
   // dmx on Serial 1 (GPIO 0 input)
   dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
   dmxInput.read_async(buffer);  // no-wait code
 #endif
+
+#ifdef USE_OLED
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   // In the constructor #Wire1 has been passed
   Wire1.setSCL(7);
   Wire1.setSDA(6);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
   display.clearDisplay();                     // start the screen
+#endif
   //
-  //
-  keypad.begin();  // Initialize the keypad
+#ifdef USE_KEYPAD
+  mypad.begin();  // Initialize the keypad
+#endif
 }
 
-void loop() {
-  static unsigned long looptime;
-  
+void loop() {  
 #ifdef USE_CRSF
   crsfCallback(); // polling, timing is inside the callback
-#endif
-    
-// the 20 Hz main loop
+#endif    
+// the 20 Hz main loop, all sampling into channels[] array, with transmission at the end.
+static unsigned long looptime;
   if (millis() > looptime + 49) {
     looptime = millis();
     if(digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN,LOW); else digitalWrite(LED_BUILTIN,HIGH);
@@ -200,19 +150,19 @@ void loop() {
 #endif
     // get analog channels from mux
     for(int i = 0; i<16;i++){
-      channels[i] = checkMux(i)/4;
+      channels[i] = mux.checkMux(i);
+      if(invertChannel[i]>0) channels[i] = 255-channels[i];
     }
+ 
 // get channels from WiiNunchuck
 #ifdef USE_NUNCHUCK
-
-  
   if (chuck.buttons > 1){ // 2 of 3
-    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(1.5);
-    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(1.5);
+    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(FAST_MODE);
+    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(FAST_MODE);
   }
   else {
-    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(2.0);
-    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(2.0);
+    channels[16] = 127+(map(chuck.analogStickX,23,215,0,255)- X_CENTER)/(SLOW_MODE);
+    channels[17] = 127+(map(chuck.analogStickY,29,224,0,255)-Y_CENTER)/(SLOW_MODE);
   }
     channels[18] = chuck.buttons * 64;
 #endif
@@ -220,11 +170,11 @@ void loop() {
 #ifdef USE_DMX 
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
-            channels[i+19] = 0;
+            channels[i+23] = 0;
           }
-          channels[19] = 127;  // default values for ALAN
-          channels[20] = 20;
-          channels[21] = 64;
+          channels[23] = 127;  // default values for ALAN
+          channels[24] = 20;
+          channels[25] = 64;
         }
         else {
           for(int i = 0; i<8; i++){
@@ -232,56 +182,63 @@ void loop() {
           }
     }
 #endif
+#ifdef USE_KEYPAD
+    unsigned int keyValue = mypad.getKeypad();
+    channels[19] = mypad.getKeyValue(keyValue);   
+#endif
     // send to robot (choose your channels)
-#ifdef USE_CRSF  
-    unsigned int keyValue = keypad.getKeypad();
-    unsigned int switches;
-    if(channels[10]<64) switches +=1;
-    if(channels[11]<64) switches +=2;
-    if(channels[12]<64) switches +=4;
-    if(channels[15]<64) switches +=8;
-    if(channels[13]<64) switches += 16;
-    if(channels[13]>180) switches +=32;
-    if(channels[14]<64) switches += 64;
-    if(channels[14]>180) switches += 128;
-    // for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
-    //   rcChannels[i] = map(channels[channelMap[i]],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    // }
-    // or a list 
-    rcChannels[0] = map(channels[16],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[1] = map(channels[17],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[2] = map(keyValue & 0xFF,0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[3] = map((keyValue>>8 & 0x0F) + channels[18],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[4] = map(switches,0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[5] = map(channels[4],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[6] = map(channels[5],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[7] = map(channels[6],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[8] = map(channels[7],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[9] = map(channels[0],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[10] = map(channels[1],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[11] = map(channels[2],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[12] = map(channels[3],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
-    rcChannels[13] = map(channels[8],0,150,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+ 
+ #ifdef STUFF_SWITCHES   
+     unsigned int switchbuffer = 0;
+     unsigned int doubleswitchbuffer = 0;
+     for(int i = 0; i<4; i++){
+       if(usedChannel[i]){
+         if(switchChannel[i]==1 && channels[i]<64) switchbuffer += 1<<(i+4);
 
-
+       }
+     }
+     for(int i = 4; i< 8; i++){
+      if(usedChannel[i]){
+        if(switchChannel[i]==2 && channels[i]<64) doubleswitchbuffer += 1<<(2*(i-4));
+        if(switchChannel[i]==2 && channels[i]>180) doubleswitchbuffer += 1<<(2*(i-4)+1);
+      }
+     }
+    channels[20] = switchbuffer;
+    channels[21] = doubleswitchbuffer;
+    // if(channels[0]<64) channels[20] +=1;
+    // if(channels[1]<64) channels[20] +=2;
+    // if(channels[2]<64) channels[20] +=4;
+    // if(channels[3]<64) channels[20] +=8;
+    // if(channels[4]<64) channels[20] += 16;
+    // if(channels[4]>180) channels[20] +=32;
+    // if(channels[5]<64) channels[20] += 64;
+    // if(channels[5]>180) channels[20] += 128;
+#endif
+#ifdef USE_CRSF
+    for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
+       rcChannels[i] = map(channels[channelMap[i]],0,255,CRSF_CHANNEL_MIN,CRSF_CHANNEL_MAX);
+     }
 #else
     // RobotWrite(13,channels[0],channels[1],channels[16],channels[17],channels[18],channels[19],channels[20],channels[21]);
     static unsigned char message [RF_MAX_CHANNEL];
     for(int i = 0; i< RF_MAX_CHANNEL; i++){
       message[i] = channels[channelMap[i]];
     }
-    RobotWrite(13,message,16);
+    myTransmitter.RobotWrite(13,message,16);
 #endif
-  } // end of looptime
+  } // end of looptime (20Hz loop)
+
+#ifdef USE_OLED
   // process the display
   static unsigned long screentime;
   if(millis()>screentime+99){
     screentime = millis();
-    
-
     processScreen(1,4); 
   }
-}
+#endif
+} // end of main loop
+
+
 //////////////////////////
 // USB handling on Core1
 /////////////////////////
@@ -351,6 +308,7 @@ void processScreen(int menu, int position){
         display.setCursor(0, 0);  // Start at top-left corner
         display.setTextSize(1);   // Draw 2X-scale text
         display.setTextColor(SSD1306_WHITE);
+        if((char)channels[19] != ' ') display.println((char)channels[19]);
         //display.println(F("123456789012345678901234567890"));
         display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }
@@ -388,43 +346,4 @@ void processScreen(int menu, int position){
     display.fillRect(90, 32 - channels[5] / 8, 4, channels[5] / 8, SSD1306_INVERSE);
     }
     display.display();
-}
-
-void RobotWrite(int board, unsigned char *message, int messagelength) {
-  unsigned char length = messagelength+2;
-  int checksumbuffer = board + length + 0x03;
-  for(int i = 0; i< messagelength; i++){
-    checksumbuffer += message[i];
-  }
-  unsigned char checksum = ~(checksumbuffer);
-  unsigned char buff[length + 4];
-  buff[0] = 0xFF;
-  buff[1] = 0xFF;
-  buff[2] = (unsigned char) board;
-  buff[3] = length;
-  buff[4] = 0x03;
-  for(int i = 5; i<length+3; i++){
-    buff[i] = message[i-5];
-  }
-  buff[length+3] = checksum;
-  
-  RFWriteRaw(buff, length + 4);
-}
-
-/********************************************************************
-   RAW SERIAL COMMUNICATION USING RS485 PROTOCOL
-
-   RS485 uses an extra bit, being the Send/Receive bit. Therefore, we need
-   'wrappers' around the Serial.XXX()'s that takes care of handling it.
-   These functions are below.
- ********************************************************************/
-
-// Writes the characters in buffer to the RS485. Blocks until the
-// sending has finished.
-void RFWriteRaw(unsigned char *buffer, int length) {
-  //digitalWrite(RS485_SR, HIGH);
-  if (digitalRead(LED_BUILTIN) == 0)digitalWrite(LED_BUILTIN, HIGH); else digitalWrite(LED_BUILTIN, LOW);
-  Serial2.write((uint8_t*)buffer, length);
-  Serial2.flush(); // waits for the buffer to be empty
-  //digitalWrite(RS485_SR, LOW); // is necessary when we listen too (but we don't)
 }
