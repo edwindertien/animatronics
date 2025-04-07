@@ -26,7 +26,7 @@
 #define FAST_MODE 1.5
 #define RF_MAX_CHANNEL 16
 //                                           0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,20, 8,19,21,23,23,23,23,23,23,23,23,23};
+unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,19, 8,20,21,23,23,23,23,23,23,23,23,23};
 // originally, the latest 'universal remote' for EXOOT uses
 //                          X    Y    bt  sw  vol k2a k2b k1a k1b
 // int transmitBuffer[9] = {127, 127, 0,  0,  0,  0,  0,  0,  0};

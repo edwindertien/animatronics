@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "Adafruit_PWMServoDriver.h"
+#include "Motor.h"
 #include "DFRobot_DF1201S.h"
 #include "Audio.h"
 
@@ -14,17 +15,22 @@
 class Action {
 
   private:
-    DFRobot_DF1201S* player;
+  Motor* motor = nullptr;
+  int motorvalue = 0;
+  const char* soundfile = nullptr;
+  DFRobot_DF1201S* player = nullptr;
     char button;
     int relay;
     int mode;
     int state;
     int previousState;
-    const char *soundfile;
+    void init();
 
   public:
-    Action(char button, int relay, int mode, const char *soundfile, DFRobot_DF1201S* player);
-    void init();
+  Action(char button, int relay, int mode);
+  Action(char button, int relay, int mode, Motor* motor, int motorvalue);
+  Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
+    
     void update();
     void trigger();
     void stop();

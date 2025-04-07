@@ -28,8 +28,15 @@ d_receive_state;
 //#define DEBUG (1) /* Do undef for no debugging*/
 
 // Prototype for a function that the user will provide somewhere.
-void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data);
+extern void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data);
 
+void DynamixelInit(long bd, int RS485sr)
+{
+  Serial1.begin(bd);
+  Serial1.setTX(0);
+  Serial1.setRX(1);
+  pinMode(RS485_SR, OUTPUT);
+}
 
 void DynamixelPoll()
 {
@@ -212,3 +219,56 @@ void DynamixelWriteBuffer(int id, unsigned char *buffer, int messagelength) {
   };
   RFWriteRaw(buff, length + 4);
   }*/
+
+
+
+      
+//   DynamixelWrite(dynamixelIDs[0], 28, map(channels[2],0,255,0,8));
+//   DynamixelWrite(dynamixelIDs[1], 28, map(channels[2],0,255,0,8));
+//   DynamixelWrite(dynamixelIDs[2], 28, map(channels[2],0,255,0,8));
+
+// DynamixelWrite(dynamixelIDs[0], 30, map(channels[0], 0, 255, dynamixelMinPos[0]-dynamixelOffset[0], dynamixelMaxPos[0]-dynamixelOffset[0]));
+// DynamixelWrite(dynamixelIDs[1], 30, map(channels[1], 0, 255, dynamixelMinPos[1]-dynamixelOffset[1], dynamixelMaxPos[1]-dynamixelOffset[1]));
+
+// DynamixelWrite(dynamixelIDs[2], 30, map(channels[1], 0, 255, dynamixelMinPos[2]-dynamixelOffset[2], dynamixelMaxPos[2]-dynamixelOffset[2]));
+
+// for (int n = 0; n < 2; n++) {
+//   DynamixelWrite(dynamixelIDs[n], 34, map(channels[15],0,255,0,1023)); // 28 -> gain
+
+
+// }
+// for(int i = 2; i<7; i++){
+// DynamixelWrite(dynamixelIDs[i], 28, map(channels[15],0,255,0,8));
+// }
+
+
+// DynamixelWrite(dynamixelIDs[0], 30, map(channels[4]-(127-channels[3]), 127, 255, dynamixelMinPos[0]-dynamixelOffset[0], dynamixelMaxPos[0]-dynamixelOffset[0]));
+// DynamixelWrite(dynamixelIDs[1], 30, map(channels[4]+(127-channels[3]), 127, 255, dynamixelMinPos[1]-dynamixelOffset[1], dynamixelMaxPos[1]-dynamixelOffset[1]));
+
+// DynamixelWrite(dynamixelIDs[2], 30, map(channels[5]-(127-channels[6]), 0, 255, dynamixelMinPos[2]-dynamixelOffset[2], dynamixelMaxPos[2]-dynamixelOffset[2]));
+// DynamixelWrite(dynamixelIDs[3], 30, map(channels[5]+(127-channels[6]), 0, 255, dynamixelMinPos[3]-dynamixelOffset[3], dynamixelMaxPos[3]-dynamixelOffset[3]));
+
+// DynamixelWrite(dynamixelIDs[4], 30, map(channels[0], 0, 255, dynamixelMinPos[4]-dynamixelOffset[4], dynamixelMaxPos[4]-dynamixelOffset[4]));
+
+// DynamixelWrite(dynamixelIDs[5], 30, map(channels[1], 0, 255, dynamixelMinPos[5]-dynamixelOffset[5], dynamixelMaxPos[5]-dynamixelOffset[5]));
+// DynamixelWrite(dynamixelIDs[6], 30, map(channels[1], 0, 255, dynamixelMinPos[6]-dynamixelOffset[6], dynamixelMaxPos[6]-dynamixelOffset[6]));
+
+// pinMode(22,OUTPUT);
+// pinMode(21,OUTPUT);
+
+// // dynamixel
+//   Serial1.begin(1000000);
+//   Serial1.setTX(0);
+//   Serial1.setRX(1);
+//   pinMode(RS485_SR, OUTPUT);
+
+//    for (int n = 0; n < 2; n++) {
+//     DynamixelWrite(dynamixelIDs[n], 28, 0); // 28 -> gain
+//     DynamixelWrite(dynamixelIDs[n], 29, 0); // 28 -> gain
+//     DynamixelWrite(dynamixelIDs[n], 16, 0); // (1 for data, 0 for silence) 
+//   }
+
+//    for (int n = 2; n < 7; n++) {
+//     DynamixelWrite(dynamixelIDs[n], 28, 0); // 28 -> gain
+//     DynamixelWrite(dynamixelIDs[n], 16, 0); // (1 for data, 0 for silence)
+//   }

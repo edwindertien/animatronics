@@ -1,9 +1,10 @@
 #include "Radio.h"
 #include "Arduino.h"
 
-void ProcessRadioData(int ID, int dataLength, unsigned char *Data);
+
 volatile unsigned long timeOutValue;
 
+extern void ProcessRadioData(int ID, int dataLength, unsigned char *Data); // provided in main.cpp
 
 typedef enum
 {

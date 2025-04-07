@@ -1,13 +1,37 @@
 #include "Action.h"
 
-bool getRemoteSwitch(char button);  // this wil be provided somewhere
-void writeRelay(int relay,bool state);
+extern bool getRemoteSwitch(char button);  // this wil be provided somewhere
+extern void writeRelay(int relay,bool state);
 
 
-Action::Action(char button, int relay, int mode, const char* soundfile,  DFRobot_DF1201S* player) {
+// now with function overloading. 
+
+Action::Action(char button, int relay, int mode) {
   this->button = button;
   this->relay = relay;
   this->mode = mode;
+  state = 0;
+  previousState = 0;
+  init();
+}
+
+Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue) {
+  this->button = button;
+  this->relay = relay;
+  this->mode = mode;
+  this->motor = motor;
+  this->motorvalue = motorvalue;
+  state = 0;
+  previousState = 0;
+  init();
+}
+
+Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char* soundfile,  DFRobot_DF1201S* player) {
+  this->button = button;
+  this->relay = relay;
+  this->mode = mode;
+  this->motor = motor;
+  this->motorvalue = motorvalue;
   this->soundfile = soundfile;
   this->player = player;
   state = 0;
@@ -45,21 +69,51 @@ void Action::update() {
   previousState = getRemoteSwitch(button);
 }
 void Action::trigger() {
-       writeRelay(relay,HIGH);
+        // Trigger relay action
+    if (relay >= 0) {
+      writeRelay(relay, HIGH);  // Trigger relay
+  }
 
-      if (player && soundfile !="") {
-        player->playSpecFile(soundfile);
-        Serial.println(soundfile);
-      }
+  // Trigger motor speed if motor is initialized
+  if (motor != nullptr) {
+      motor->setSpeed(motorvalue);  // Example: Setting motor speed to full (255). Adjust as needed.
+      //Serial.println("Motor speed set.");
+  }
+
+  // Play sound if a soundfile is provided
+  if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
+      player->playSpecFile(soundfile);
+      //Serial.println(soundfile);
+  }
+      //  writeRelay(relay,HIGH);
+
+      // if (player && soundfile !="") {
+      //   player->playSpecFile(soundfile);
+      //   Serial.println(soundfile);
+      // }
 }
 
 void Action::stop() {
-        writeRelay(relay,LOW);
+      // Reset relay
+      writeRelay(relay, LOW);
 
-      if (player) {
-        player->pause();
-        Serial.println("pause");
+      // Pause motor if it's initialized
+      if (motor != nullptr) {
+          motor->setSpeed(0);  // Stop the motor
+          Serial.println("Motor stopped.");
       }
+  
+      // Pause sound if player is initialized
+      if (player != nullptr) {
+          player->pause();
+          Serial.println("Sound paused.");
+      }
+      //   writeRelay(relay,LOW);
+
+      // if (player) {
+      //   player->pause();
+      //   Serial.println("pause");
+      // }
 }
 
 int Action::getState() {

@@ -1,36 +1,43 @@
 #include "Motor.h"
 
 // Constructor to initialize the motor pins
-Motor::Motor(int pinA, int pinB, int pwmPin) {
+Motor::Motor(int pinA, int pinB, int pwmPin, int brakeRelay) {
   this->pinA = pinA;
   this->pinB = pinB;
   this->pwmPin = pwmPin;
+  this->brakeRelay = brakeRelay;  
+}
+
+void Motor::init() {
+  if(pinA >= 0)pinMode(pinA, OUTPUT);
+  if(pinB >= 0)pinMode(pinB, OUTPUT);
+  if(pwmPin >= 0)pinMode(pwmPin, OUTPUT);
   
-  pinMode(pinA, OUTPUT);
-  pinMode(pinB, OUTPUT);
-  pinMode(pwmPin, OUTPUT);
-  
-  analogWrite(pwmPin, 0); // Set initial speed to 0
-  digitalWrite(pinA, LOW); // Set initial direction to LOW
-  digitalWrite(pinB, LOW);
+  if(pwmPin >= 0)analogWrite(pwmPin, 0); // Set initial speed to 0
+  if(pinA >= 0)digitalWrite(pinA, LOW); // Set initial direction to LOW
+  if(pinB >= 0)digitalWrite(pinB, LOW);
+  if(brakeRelay >= 0)writeRelay(brakeRelay,1); // brake on
 }
 
 // Method to set motor speed (positive for forward, negative for reverse, 0 for stop)
 void Motor::setSpeed(int value) {
-  if (value > 0) {
-    digitalWrite(pinA, HIGH);  // Set direction to forward
-    digitalWrite(pinB, LOW);
-    analogWrite(pwmPin, value); // Set speed
+  if (value >  MOTOR_DEADZONE) {
+    if(pinA >= 0)digitalWrite(pinA, HIGH);  // Set direction to forward
+    if(pinB >= 0)digitalWrite(pinB, LOW);
+    if(pwmPin >= 0)analogWrite(pwmPin, value); // Set speed
+    if(brakeRelay >= 0)writeRelay(brakeRelay,1); 
   }
-  else if (value < 0) {
-    digitalWrite(pinA, LOW);   // Set direction to reverse
-    digitalWrite(pinB, HIGH);
-    analogWrite(pwmPin, -value); // Set speed (positive value for reverse)
+  else if (value <  -MOTOR_DEADZONE) {
+    if(pinA >= 0)digitalWrite(pinA, LOW);   // Set direction to reverse
+    if(pinB >= 0)digitalWrite(pinB, HIGH);
+    if(pwmPin >= 0)analogWrite(pwmPin, abs(value)); // Set speed (positive value for reverse)
+    if(brakeRelay >= 0)writeRelay(brakeRelay,1); 
   }
   else {
-    analogWrite(pwmPin, 0); // Stop motor
-    digitalWrite(pinA, LOW);
-    digitalWrite(pinB, LOW);
+    if(pwmPin >= 0)analogWrite(pwmPin, 0); // Stop motor
+    if(pinA >= 0)digitalWrite(pinA, LOW);
+    if(pinB >= 0)digitalWrite(pinB, LOW);
+    if(brakeRelay >= 0)writeRelay(brakeRelay,0); 
   }
 }
 
