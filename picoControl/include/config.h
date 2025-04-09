@@ -6,6 +6,8 @@
 ////// hardware specifics for animaltroniek
 #ifdef ANIMALTRONIEK
 // for using DC motors, for example Electromen drives
+// animaltroniek uses 2 x  x EM-115-48 H-brug which uses
+// two inputs for direction and 1 input for velocity.
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define MAX_SPEED 100  // used for scaling in the cross-mix function

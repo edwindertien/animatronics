@@ -5,13 +5,19 @@
 // with a specific configuration string
 // for BetaFPV/ELRS/CrossFire you can send and
 // receive a CRSF string. make sure remote and receiver
-// are paired (see betafpv manual)
-
+// are paired (see betafpv manual), flashed with 
+// firmware v3.4.3 or up (same for Tx and Tx). Set 
+// packet rate to 333 (or100), switches to 16/2 ch and telemetry to 1:128
+// 
+// TODO: for the animaltroniek the air or driving edition have not been 
+// added yet.
+//
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
+// edit the config.h to set the specifics for a used robot or vehicle
 #include <Arduino.h>
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
-#include "config.h"  // the specifics for the controlled robot
+#include "config.h"  // the specifics for the controlled robot or vehicle
 
 #ifdef USE_OLED
 // OLED display
@@ -46,7 +52,7 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #ifdef USE_RS485
 // for communication with motor driver and other externals
 #include "DynamixelReader.h"
-#define BUFFER_PASSTHROUGH 9
+#define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
 
 #ifdef USE_AUDIO

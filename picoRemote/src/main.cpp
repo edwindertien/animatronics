@@ -82,9 +82,6 @@ volatile uint8_t buffer[DMXINPUT_BUFFER_SIZE(DMX_START_CHANNEL, DMX_NUM_CHANNELS
 // data used for the multiplexer. This is fixed at 16 channels
 #include "muxcontrol.h"
 int muxpins[] = {16,17,18,19};
-
-
-
 MuxControl mux(muxpins, 4);
 
 #ifdef USE_APC
