@@ -5,17 +5,52 @@ extern void writeRelay(int relay,bool state);
 
 // now with function overloading. 
 
+Action::Action(char button, int relay, int mode) {
+  this->button = button;
+  this->relay = relay;
+  this->mode = mode;
+  this->relay1 = -1;
+  this->relay2 = -1;
+  this->relay3 = -1;
+  state = 0;
+  previousState = 0;
+  init();
+}
+
+Action::Action(char button, int relay, int mode, int relay1) {
+  this->button = button;
+  this->relay = relay;
+  this->mode = mode;
+  this->relay1 = relay1;
+  this->relay2 = -1;
+  this->relay3 = -1;
+  state = 0;
+  previousState = 0;
+  init();
+}
+
 Action::Action(char button, int relay, int mode, int relay1, int relay2) {
   this->button = button;
   this->relay = relay;
   this->mode = mode;
   this->relay1 = relay1;
   this->relay2 = relay2;
+  this->relay3 = -1;
   state = 0;
   previousState = 0;
   init();
 }
-
+Action::Action(char button, int relay, int mode, int relay1, int relay2, int relay3) {
+  this->button = button;
+  this->relay = relay;
+  this->mode = mode;
+  this->relay1 = relay1;
+  this->relay2 = relay2;
+  this->relay3 = relay3;
+  state = 0;
+  previousState = 0;
+  init();
+}
 
 
 void Action::init() {
@@ -45,7 +80,8 @@ void Action::update() {
       trigger();
     }
   }
-  previousState = getRemoteSwitch(button);
+  //previousState = getRemoteSwitch(button);
+  previousState = state;
 }
 void Action::trigger() {
         // Trigger relay action
@@ -57,6 +93,9 @@ void Action::trigger() {
 }
 if (relay2 >= 0) {
   writeRelay(relay2, HIGH);  // Trigger relay
+}
+if (relay3 >= 0) {
+  writeRelay(relay3, HIGH);  // Trigger relay
 }
   // // Trigger motor speed if motor is initialized
   // if (motor != nullptr) {
@@ -82,6 +121,7 @@ void Action::stop() {
       if (relay >= 0) {writeRelay(relay, LOW);}
       if (relay1 >= 0) {writeRelay(relay1, LOW);}
       if (relay2 >= 0) {writeRelay(relay2, LOW);}
+      if (relay3 >= 0) {writeRelay(relay3, LOW);}
       // Pause motor if it's initialized
       // if (motor != nullptr) {
       //     motor->setSpeed(0);  // Stop the motor

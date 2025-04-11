@@ -23,13 +23,17 @@ class Action {
     int relay;
     int relay1;
     int relay2;
+    int relay3;
     int mode;
     int state;
     int previousState;
     void init();
 
   public:
-  Action(char button, int relay, int mode, int relay1=-1, int relay2=-1);
+  Action(char button, int relay, int mode);
+  Action(char button, int relay, int mode, int relay1);
+  Action(char button, int relay, int mode, int relay1, int relay2);
+  Action(char button, int relay, int mode, int relay1, int relay2, int relay3);
   //Action(char button, int relay, int mode, Motor* motor, int motorvalue);
   //Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
     

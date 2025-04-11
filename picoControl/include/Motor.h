@@ -7,7 +7,7 @@ const int maxSpeed = 255;
 int getLeftValueFromCrossMix(int speed, int direction);
 int getRightValueFromCrossMix(int speed, int direction);
 
-#define MOTOR_DEADZONE 10
+#define MOTOR_DEADZONE 20
 
 extern void writeRelay(int relay, bool state);  // has to be provided elsewhere!
 

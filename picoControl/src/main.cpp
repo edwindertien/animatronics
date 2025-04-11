@@ -17,6 +17,8 @@
 // edit the config.h to set the specifics for a used robot or vehicle
 #include <Arduino.h>
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
+// button actions, samples
+#include "Action.h"
 #include "config.h"  // the specifics for the controlled robot or vehicle
 
 #ifdef USE_OLED
@@ -71,27 +73,17 @@ SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 #ifdef USE_MOTOR
 #include <Motor.h>
 // left pin, right pin, pwm pin, brake relay pin. set unused pins to -1
-Motor motorLeft(18, 19, 20, 6);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
-Motor motorRight(26, 27, 28, 7);  //
+Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorRight(28, 27, 26, 1);  //
 Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
 #endif
 
 #include "Animation.h"
 Animation animation(defaultAnimation, STEPS);
 
-// button actions, samples
-#include "Action.h"
-// important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 6
-Action myActionList[NUM_ACTIONS] = {
-//  Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),
-  Action('1', -1, DIRECT, &tandkrans, -100),
-  Action('2', -1, DIRECT, &tandkrans, -100),
-  Action('3', 0, DIRECT),
-  Action('#', 1, DIRECT),
-  Action(8, 2, DIRECT),
-  Action(9, 3, DIRECT),
-};
+
+
+
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
 // and 32 switch positions (in 4 bytes)
@@ -166,7 +158,7 @@ void setup() {
   RFinit();
   RFsetSettings(2);
 #endif
-//animation.start();
+
 }
 
 void loop() {
@@ -195,21 +187,43 @@ void loop() {
     if (crsf.crsfData[1] == 24 && mode == ACTIVE) {
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
-      for (int n = 0; n < 14; n++) {
-        channels[n] = map(crsf.channels[n], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX-CRSF_CHANNEL_OFFSET, 0, 255);  //write
+      if(!animation.isPlaying()){
+        for (int n = 0; n < 14; n++) {
+          channels[n] = constrain(map(crsf.channels[n], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX-CRSF_CHANNEL_OFFSET, 0, 255),0,255);  //write
+        }
       }
+      // channels[8] contains the animation start and stop, so is always written by remote
+      channels[8] = constrain(map(crsf.channels[8], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX, 0, 255),0,255);  //write
       crsf.UpdateChannels();
     }
 #endif
 
 #ifdef USE_MOTOR
-#ifdef USE_CROSS_MIXING
-    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
-    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
-#else
-    motorLeft.setSpeed(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED) - map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED));
-    motorRight.setSpeed(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED) + map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED));
-#endif
+if(!animation.isPlaying()){
+  #ifdef USE_SPEEDSCALING
+  #ifdef USE_KEYPAD_SPEED
+  if(getRemoteSwitch('#')){
+  #else
+  if(channels[2]==192){
+  #endif
+  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)));
+  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)));
+}
+  else if (channels[2]==128){
+    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)));
+    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)));
+  
+  }
+  else {
+    motorLeft.setSpeed(0);
+    motorRight.setSpeed(0);
+  }
+   #else
+   motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
+   motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
+
+   #endif
+}
 #endif
 
 #ifdef DEBUG
@@ -221,9 +235,12 @@ Serial.print('{');
     Serial.println("},");
 #endif
 
+///// check this bit.. also how to stop the animation again!!!
+if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying())animation.start();
+else if (animation.isPlaying()) animation.stop();
+
 // RS485 passthrough of Remote data (for eyes, etc)
 #ifdef USE_RS485
-
     unsigned char headMessage[BUFFER_PASSTHROUGH];
     for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
       headMessage[i] = channels[i];  // transparent pass-through
@@ -318,6 +335,9 @@ void processScreen(int mode, int position) {
     // print keypad char
     display.setCursor(50, 0);
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
+    display.setCursor(70, 0);
+    if (animation.isPlaying()) display.print (F("anim run"));
+    else display.print (F("anim stop"));
     // print bars
     for (int n = 0; n < NUM_CHANNELS; n++) {
       display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);

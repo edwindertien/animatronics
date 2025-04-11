@@ -49,9 +49,9 @@ void DynamixelPoll()
   static unsigned char DataLengthBuffer;
   static unsigned int checksumBuffer = 0;
 
-  if (Serial1.available()>0)
+  if (Serial2.available()>0)
   {
-    c = Serial1.read();
+    c = Serial2.read();
 
 #ifdef DEBUG
     Serial.print(c,HEX);

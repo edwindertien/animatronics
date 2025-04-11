@@ -52,10 +52,9 @@ bool getRemoteSwitch(char button) {
 }
 
 void writeRelay(int relay,bool state){
-  if(relay >= 0 && relay <16){
+
     if(state) digitalWrite(relays[relay],LOW);
     else digitalWrite(relays[relay],HIGH);
-  }
 }
 
 void setup() {
@@ -99,9 +98,9 @@ void loop() {
       }
     }
     //// now, here the magic should happen for switch-type actions
-    for (int n = 0; n < NUM_ACTIONS; n++) {
-      myActionList[n].update();
-    }
+   for (int n = 0; n < NUM_ACTIONS; n++) {
+     myActionList[n].update();
+   }
    
 
 
@@ -127,7 +126,7 @@ void loop() {
     eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
   }
   //--------- then for the eyelids --------------
-  if (message.buttons == 1) {
+  if (message.buttons == 64) {
     int leftLidvalue = (message.ySetpoint - 127) + min(127 - message.xSetpoint, 0);
     int rightLidvalue = (message.ySetpoint - 127) + min(message.xSetpoint - 127, 0);
     eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4]));
@@ -135,7 +134,7 @@ void loop() {
     //Serial.println(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
   }
   //-----------  DURING DRIVING (MOTOR ON  -------------
-  if (message.buttons == 2) {
+  if (message.buttons == 128 || message.buttons == 192) {
     eyeServo[0].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[0], servoMins[0]));
     eyeServo[1].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[1], servoMins[1]));
     eyeServo[2].write(map(message.ySetpoint, 0, 255, servoMins[2], servoMax[2]));

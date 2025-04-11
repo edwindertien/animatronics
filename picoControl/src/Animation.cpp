@@ -1,5 +1,8 @@
 #include "Animation.h"
 #include "Track-kreeft.h"
+
+extern uint8_t channels[];  // the global channel array (aargh)
+
 // Constructor to initialize animation data and total steps
 Animation::Animation(const animationStep* animationData, int totalSteps) {
   this->animationData = animationData;
@@ -49,8 +52,22 @@ void Animation::update() {
     Serial.print(','); Serial.print(ySetpoint);
     Serial.print(','); Serial.print(buttons);
     Serial.print(','); Serial.print(keypad);
+    Serial.print(','); Serial.print(volume);
+    Serial.print(','); Serial.print(switches1);
+    Serial.print(','); Serial.print(switches2);
+    Serial.print(','); Serial.print(switches3);
+    Serial.print(','); Serial.print(switches4);
     Serial.println("},");
-
+    // 
+    channels[0] = xSetpoint;
+    channels[1] = ySetpoint;
+    channels[2] = buttons;
+    channels[3] = keypad;
+    channels[4] = volume;
+    channels[5] = switches1;
+    channels[6] = switches2;
+    channels[7] = switches3;
+    //channels[8] = switches4; // contains the starting and stopping, so should not be recorded
     // Move to the next step after the timer reaches a certain threshold
     animationTimer++;
     if (currentStep < (totalSteps - 1)) {

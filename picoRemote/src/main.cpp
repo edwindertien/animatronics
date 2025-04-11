@@ -35,6 +35,7 @@
 #include <Arduino.h>
 #include <Wire.h>  // the I2C communication lib for the display and other things
 #include "config.h"
+//#define DEBUG (1)
 // the total channels (inputs) for the system to work with currently set at 32
 // channels consist of [array of mux values 16][array of chuck values 3][keypad 1][arrays of switches 4[array of dmx values 8]  
 #define NUM_CHANNELS 32
@@ -185,31 +186,27 @@ static unsigned long looptime;
 #endif
     // send to robot (choose your channels)
  
- #ifdef STUFF_SWITCHES   
-     unsigned int switchbuffer = 0;
-     unsigned int doubleswitchbuffer = 0;
-     for(int i = 0; i<4; i++){
-       if(usedChannel[i]){
-         if(switchChannel[i]==1 && channels[i]<64) switchbuffer += 1<<(i+4);
+ #ifdef STUFF_SWITCHES 
+     unsigned long switchbuffer = 0; 
 
-       }
-     }
-     for(int i = 4; i< 8; i++){
+    for (int i =0; i<16; i++){
       if(usedChannel[i]){
-        if(switchChannel[i]==2 && channels[i]<64) doubleswitchbuffer += 1<<(2*(i-4));
-        if(switchChannel[i]==2 && channels[i]>180) doubleswitchbuffer += 1<<(2*(i-4)+1);
+        if (channels[i]<64) switchbuffer += 1<<(2*(i));
+        if (channels[i]>180) switchbuffer += 1<<(2*(i)+1);
       }
-     }
-    channels[20] = switchbuffer;
-    channels[21] = doubleswitchbuffer;
-    // if(channels[0]<64) channels[20] +=1;
-    // if(channels[1]<64) channels[20] +=2;
-    // if(channels[2]<64) channels[20] +=4;
-    // if(channels[3]<64) channels[20] +=8;
-    // if(channels[4]<64) channels[20] += 16;
-    // if(channels[4]>180) channels[20] +=32;
-    // if(channels[5]<64) channels[20] += 64;
-    // if(channels[5]>180) channels[20] += 128;
+    }
+    channels[20] = (switchbuffer) & 0x000000FF;
+    channels[21] = (switchbuffer>>8) & 0x000000FF;
+    channels[22] = (switchbuffer>>16) & 0x000000FF;
+    channels[23] = (switchbuffer>>24) & 0x000000FF;
+
+#endif
+#ifdef DEBUG
+for(int i = 0; i< 4; i++){
+  Serial.print(channels[20+i]);
+  if(i<3)Serial.print(',');
+}
+Serial.println("");
 #endif
 #ifdef USE_CRSF
     for(int i = 0; i<CRSF_MAX_CHANNEL; i++){
