@@ -6,6 +6,18 @@
 // are in circulation. ALAN and KLARA have been using the
 // V1.0 board with as main difference an OLED on WIRE0 instead 
 // of WIRE 1 (no define yet)
+//
+//
+// V2.0 configuration details
+// flash ELRS BetaFPV 2.4GHz 1W transmitter
+// (for now) version 3.4.3
+// set rate at 333Hz, and switches to 16/2
+// telemetry (not used yet) std (1:128)
+// transmission power (arbitrary for now)
+// on PCB V2.0 make sure the solder jumper (bypass transmission buffer) is placed
+//
+// std Grove I2C has SCL and SDA swapped with respect to OLED connector (!)
+// 
 //#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ALAN (1)

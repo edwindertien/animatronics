@@ -63,6 +63,7 @@ int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // for using DC motors, for example Electromen drives
 // animaltroniek uses 2 x  x EM-115-48 H-brug which uses
 // two inputs for direction and 1 input for velocity.
+#define BOARD_V2 (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -79,14 +80,17 @@ int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
 
+#define RELAY_POWER_1 11
+#define RELAY_POWER_2 26
+
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 2
+#define NUM_ACTIONS 4
 Action myActionList[NUM_ACTIONS] = {
   //Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),
   //Action('1', -1, DIRECT, &tandkrans, -100),
   //Action('2', -1, DIRECT, &tandkrans, -100),
-  //Action('3', 3, DIRECT),
-  //Action('4', 4, DIRECT),
+  Action('3', 3, DIRECT),
+  Action('4', 4, DIRECT),
   Action(10, 4, DIRECT), // on button s
   Action(11, 5, DIRECT),
 };

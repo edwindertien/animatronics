@@ -44,11 +44,17 @@ void writeRelay(int relay, bool state) {
 // encoder knob
 #include <hardware/pio.h>
 #include "quadrature.pio.h"
+#ifdef BOARD_V1
 #define QUADRATURE_A_PIN 20
 #define QUADRATURE_B_PIN 21
+#define PUSH_BUTTON 22
+#else 
+#define QUADRATURE_A_PIN 13
+#define QUADRATURE_B_PIN 14
+#define PUSH_BUTTON 15
+#endif
 PIO pio = pio0;
 unsigned int sm = pio_claim_unused_sm(pio, true);
-#define PUSH_BUTTON 22
 #endif
 
 #ifdef USE_RS485
@@ -72,10 +78,16 @@ SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 
 #ifdef USE_MOTOR
 #include <Motor.h>
+#ifdef BOARD_V1
 // left pin, right pin, pwm pin, brake relay pin. set unused pins to -1
 Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
 Motor motorRight(28, 27, 26, 1);  //
 Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
+# else
+Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorRight(28, 21, 22, 1);  //
+//Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
+#endif
 #endif
 
 #include "Animation.h"
@@ -116,6 +128,8 @@ CRSF crsf;
 
 // and here the program starts
 void setup() {
+
+
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
 #ifdef USE_OLED
@@ -144,7 +158,7 @@ void setup() {
 #ifdef USE_MOTOR
   motorLeft.init();
   motorRight.init();
-  tandkrans.init();
+ // tandkrans.init();
 #endif
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
@@ -158,6 +172,14 @@ void setup() {
   RFinit();
   RFsetSettings(2);
 #endif
+
+#ifdef BOARD_V2
+pinMode(RELAY_POWER_1,OUTPUT);
+digitalWrite(RELAY_POWER_1,HIGH);
+pinMode(RELAY_POWER_2,OUTPUT);
+digitalWrite(RELAY_POWER_2,LOW);
+#endif
+
 
 }
 
