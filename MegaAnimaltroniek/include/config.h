@@ -1,7 +1,7 @@
 // RS485 on Serial 2 for communication
 //
-#define VIS (1)
-//#define KREEFT (1)
+//#define VIS (1)
+#define KREEFT (1)
 //#define SCHILDPAD (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 // array with all relays, grouped on two connectors of 8 pins each

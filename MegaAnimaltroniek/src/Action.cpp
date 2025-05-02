@@ -80,6 +80,7 @@ void Action::update() {
       trigger();
     }
   }
+  else { Serial.println("error: mode undefined");}
   //previousState = getRemoteSwitch(button);
   previousState = state;
 }

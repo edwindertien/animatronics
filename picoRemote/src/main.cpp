@@ -190,7 +190,7 @@ static unsigned long looptime;
      unsigned long switchbuffer = 0; 
 
     for (int i =0; i<16; i++){
-      if(usedChannel[i]){
+      if(switchChannel[i]>0){
         if (channels[i]<64) switchbuffer += 1<<(2*(i));
         if (channels[i]>180) switchbuffer += 1<<(2*(i)+1);
       }

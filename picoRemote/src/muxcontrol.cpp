@@ -1,5 +1,5 @@
 #include "muxcontrol.h"
-
+extern int usedChannel[];
 // Constructor to initialize mux pins and size
 MuxControl::MuxControl(int* pins, int size) {
   this->muxpins = pins;
@@ -22,7 +22,8 @@ int MuxControl::checkMux(int channel) {
       digitalWrite(muxpins[i], LOW);
     }
   }
-  
+  if(usedChannel[channel]){
   int value = analogRead(A0);
-  return map(value, 0, 1023, 0, 255);
+  return map(value, 0, 1023, 0, 255);}
+  else return 0;
 }

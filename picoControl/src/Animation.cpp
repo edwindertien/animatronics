@@ -1,7 +1,12 @@
 #include "Animation.h"
-#include "Track-kreeft.h"
 
-extern uint8_t channels[];  // the global channel array (aargh)
+
+#include "Track-kreeft.h"
+//#include "Track-vis.h"
+//#include "Track-schildpad.h"
+
+
+extern int channels[];  // the global channel array (aargh)
 
 // Constructor to initialize animation data and total steps
 Animation::Animation(const animationStep* animationData, int totalSteps) {

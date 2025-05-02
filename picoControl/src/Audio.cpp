@@ -1,8 +1,6 @@
 
 #include "Audio.h"
 
-
-
 void audioInit(DFRobot_DF1201S* player1,SoftwareSerial* player1port,DFRobot_DF1201S* player2,SoftwareSerial* player2port){
   player1port->begin(115200);
   player2port->begin(115200);

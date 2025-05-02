@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-#define STEPS 164
-#define PAUSE 1000 // Pause after each complete loop (milliseconds)
+#define STEPS 985
+#define PAUSE 800 // Pause after each complete loop (in loops)
 
 typedef struct {
   uint8_t xSetpoint;

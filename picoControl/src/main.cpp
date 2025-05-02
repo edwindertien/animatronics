@@ -18,8 +18,17 @@
 #include <Arduino.h>
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
 // button actions, samples
-#include "Action.h"
 #include "config.h"  // the specifics for the controlled robot or vehicle
+#include "Action.h"  // 
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+#define NUM_CHANNELS 16
+// at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
+//                                           0    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+//                                           X    Y nb kp vo sw sw sw sw
+//////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef USE_OLED
 // OLED display
@@ -29,6 +38,7 @@ Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);  // look at the bottom,
 #endif
 
+#ifdef USE_9685
 // PCA9685 pwm driver for 16 (relay) channels
 #include "Adafruit_PWMServoDriver.h"
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
@@ -39,6 +49,18 @@ void writeRelay(int relay, bool state) {
     pwm.setPWM(relay, 0, 0);
   }
 }
+#else 
+#include "PCA9635.h"
+PCA9635 pwm(0x70);
+void writeRelay(int relay, bool state) {
+  if (relay >= 0 && relay < 16 && !state) {
+    //pwm.write1(relay, 255);
+    pwm.setLedDriverMode(relay, PCA963X_LEDOFF);
+  } else if (relay >= 0 && relay < 16 && state) {
+    pwm.setLedDriverMode(relay, PCA963X_LEDON);
+  }
+}
+#endif
 
 #ifdef USE_ENCODER
 // encoder knob
@@ -64,9 +86,7 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #endif
 
 #ifdef USE_AUDIO
-// Audio: two DFRobot players on softserial uart
-#include "Audio.h"
-DFRobot_DF1201S player1, player2;
+DFRobot_DF1201S player1,player2;
 SoftwareSerial player1port(7, 6);
 SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 #endif
@@ -93,14 +113,11 @@ Motor motorRight(28, 21, 22, 1);  //
 #include "Animation.h"
 Animation animation(defaultAnimation, STEPS);
 
-
-
-
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
 // and 32 switch positions (in 4 bytes)
 bool getRemoteSwitch(char button) {
-  if(button >='0' || button=='*' || button=='#'){ // check keypad buttons
+  if((button >='0' && button<='9') || button=='*' || button=='#'){ // check keypad buttons
     if(channels[KEYPAD_CHANNEL] == button) return true;
   }
   else if(button >=0 && button < 8) {
@@ -115,6 +132,9 @@ bool getRemoteSwitch(char button) {
   else if(button >=24 && button < 32) {
     if((channels[SWITCH_CHANNEL+3]) & 1<<(button-24)) return true;
   }
+  #ifdef DEBUG
+  else {Serial.println("error: checked button out of scope");}
+  #endif
   return false;
 }
 
@@ -128,8 +148,6 @@ CRSF crsf;
 
 // and here the program starts
 void setup() {
-
-
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
 #ifdef USE_OLED
@@ -145,14 +163,20 @@ void setup() {
   unsigned int offset = pio_add_program(pio, &quadratureA_program);
   quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
 #endif
+
+#ifdef USE_9685
   // relay / servo
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(16000);
   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
+  #else
+  pwm.begin();
+  for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
+#endif
   // audio players
 #ifdef USE_AUDIO
-  audioInit(&player1, &player1port, &player2, &player2port);
+audioInit(&player1, &player1port, &player2, &player2port);
 #endif
 
 #ifdef USE_MOTOR
@@ -172,14 +196,6 @@ void setup() {
   RFinit();
   RFsetSettings(2);
 #endif
-
-#ifdef BOARD_V2
-pinMode(RELAY_POWER_1,OUTPUT);
-digitalWrite(RELAY_POWER_1,HIGH);
-pinMode(RELAY_POWER_2,OUTPUT);
-digitalWrite(RELAY_POWER_2,LOW);
-#endif
-
 
 }
 
@@ -204,6 +220,8 @@ void loop() {
     looptime = millis();
 
     animation.update();
+
+
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
     if (crsf.crsfData[1] == 24 && mode == ACTIVE) {
@@ -257,9 +275,8 @@ Serial.print('{');
     Serial.println("},");
 #endif
 
-///// check this bit.. also how to stop the animation again!!!
 if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying())animation.start();
-else if (animation.isPlaying()) animation.stop();
+if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 
 // RS485 passthrough of Remote data (for eyes, etc)
 #ifdef USE_RS485
@@ -278,9 +295,13 @@ else if (animation.isPlaying()) animation.stop();
 
       mode = IDLE;
       digitalWrite(LED_BUILTIN, HIGH);
+
+      if(!animation.isPlaying() ){
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
+    }
+
       #ifdef USE_MOTOR
       motorLeft.setSpeed(0);
       motorRight.setSpeed(0);
@@ -304,6 +325,7 @@ else if (animation.isPlaying()) animation.stop();
 #else
     nudgeTimeOut();
 #endif
+
   }  // the end of the 20Hz loop
 // finally, different timer: screen update
 #ifdef USE_OLED

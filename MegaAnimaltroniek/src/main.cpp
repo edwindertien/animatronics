@@ -5,7 +5,7 @@
 // receives commands through RS485
 //
 #include <Arduino.h>
-#define DEBUG (1)
+//#define DEBUG (1)
 #include "Action.h"
 
 #include "config.h"
@@ -33,7 +33,7 @@ Message message = {
 
 
 bool getRemoteSwitch(char button) {
-  if(message.keypad >='0' || button=='*' || button=='#'){ // check keypad buttons
+  if((button >='0' && button <='9')|| button=='*' || button=='#'){ // check keypad buttons
     if(message.keypad == button) return true;
   }
   else if(button >=0 && button < 8) {
