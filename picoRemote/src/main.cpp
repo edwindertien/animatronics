@@ -51,7 +51,7 @@ unsigned int buttons = 0;
 #ifdef USE_OLED
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
-Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire1);
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, DISPLAY_HEIGHT, &Wire1);
 void processScreen(int mode, int position); // look at the bottom, 
 #endif
 

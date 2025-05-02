@@ -61,6 +61,44 @@ void writeRelay(int relay, bool state) {
   }
 }
 #endif
+const int driveRelays[]={
+  //      
+  0b00000001,
+  0b00000011,
+  0b00000010,
+  0b00000110,
+  0b00000100,
+  0b00001100,
+  0b00001000,
+  0b00011000,
+  0b00010000,
+  0b00110000,
+  0b00100000,
+  0b00100001
+};
+
+void joystickToRelays(int x,int y){
+  int relayNumber =0;
+  if(x>127+30 || x<127-30 || y>127+30 || y<127-30){
+    relayNumber = atan2(x-127,y-127)/30;
+    #ifdef DEBUG
+    Serial.print("relay: ");
+    Serial.println(relayNumber);
+    #endif
+    for (int i = 0; i<6; i++){
+      if(driveRelays[relayNumber]&1<<i){writeRelay(i,HIGH);}
+      else{writeRelay(i,LOW);}
+    }
+  }
+  else {
+    for (int i = 0; i<6; i++){
+     writeRelay(i,LOW);
+    }
+  }
+}
+
+
+
 
 #ifdef USE_ENCODER
 // encoder knob
@@ -237,6 +275,8 @@ void loop() {
       crsf.UpdateChannels();
     }
 #endif
+
+joystickToRelays(channels[0],channels[1]);
 
 #ifdef USE_MOTOR
 if(!animation.isPlaying()){

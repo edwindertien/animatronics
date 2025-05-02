@@ -146,15 +146,7 @@
 #define USE_OLED (1)
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
-
-
-
-
-
-// Actions can only be coupled with audio when the players are enabled
-// note the board will only start when audio players are available
 //#define USE_AUDIO (1)
-
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
 
