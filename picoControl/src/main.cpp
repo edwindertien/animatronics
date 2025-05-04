@@ -21,12 +21,14 @@
 #include "config.h"  // the specifics for the controlled robot or vehicle
 #include "Action.h"  // 
 
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
 //                                           0    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //                                           X    Y nb kp vo sw sw sw sw
 //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -36,6 +38,10 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #include <Adafruit_SSD1306.h>  // display driver
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);  // look at the bottom,
+#endif
+
+#ifdef USB_JOYSTICK
+#include <Joystick.h>
 #endif
 
 #ifdef USE_9685
@@ -63,40 +69,53 @@ void writeRelay(int relay, bool state) {
 #endif
 const int driveRelays[]={
   //      
+  0b00001000,
+  0b00011000,
+  0b00010000,
+  0b00110000,
+  0b00100000,
+  0b00100001,
   0b00000001,
   0b00000011,
   0b00000010,
   0b00000110,
   0b00000100,
   0b00001100,
-  0b00001000,
-  0b00011000,
-  0b00010000,
-  0b00110000,
-  0b00100000,
-  0b00100001
 };
 
-void joystickToRelays(int x,int y){
-  int relayNumber =0;
-  if(x>127+30 || x<127-30 || y>127+30 || y<127-30){
-    relayNumber = atan2(x-127,y-127)/30;
-    #ifdef DEBUG
-    Serial.print("relay: ");
-    Serial.println(relayNumber);
-    #endif
-    for (int i = 0; i<6; i++){
-      if(driveRelays[relayNumber]&1<<i){writeRelay(i,HIGH);}
-      else{writeRelay(i,LOW);}
-    }
+bool joystickActive = false;  // global or static variable
+
+void joystickToRelays(int x, int y) {
+  const int center = 127;
+  const int enterThreshold = 60;
+  const int exitThreshold = 40;
+
+  int dx = x - center;
+  int dy = y - center;
+  int distance = sqrt(dx * dx + dy * dy);
+
+  // State transition with hysteresis
+  if (!joystickActive && distance > enterThreshold) {
+    joystickActive = true;
+  } else if (joystickActive && distance < exitThreshold) {
+    joystickActive = false;
   }
-  else {
-    for (int i = 0; i<6; i++){
-     writeRelay(i,LOW);
+
+  if (joystickActive) {
+    int relayNumber = constrain((180 + 360.0 * (atan2(dx, dy) / 6.28)) / 30, 0, 11);
+    for (int i = 0; i < 6; i++) {
+      if (driveRelays[relayNumber] & (1 << i)) {
+        writeRelay(i, HIGH);
+      } else {
+        writeRelay(i, LOW);
+      }
+    }
+  } else {
+    for (int i = 0; i < 6; i++) {
+      writeRelay(i, LOW);
     }
   }
 }
-
 
 
 
@@ -155,9 +174,13 @@ Animation animation(defaultAnimation, STEPS);
 // currently using one button channel (characters '0' and higher)
 // and 32 switch positions (in 4 bytes)
 bool getRemoteSwitch(char button) {
+
   if((button >='0' && button<='9') || button=='*' || button=='#'){ // check keypad buttons
+    #ifdef KEYPAD_CHANNEL
     if(channels[KEYPAD_CHANNEL] == button) return true;
+    #endif
   }
+  #ifdef SWITCH_CHANNEL
   else if(button >=0 && button < 8) {
     if((channels[SWITCH_CHANNEL]) & 1<<button) return true;
   }
@@ -170,8 +193,6 @@ bool getRemoteSwitch(char button) {
   else if(button >=24 && button < 32) {
     if((channels[SWITCH_CHANNEL+3]) & 1<<(button-24)) return true;
   }
-  #ifdef DEBUG
-  else {Serial.println("error: checked button out of scope");}
   #endif
   return false;
 }
@@ -188,6 +209,8 @@ CRSF crsf;
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
+
+
 #ifdef USE_OLED
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
@@ -276,7 +299,17 @@ void loop() {
     }
 #endif
 
-joystickToRelays(channels[0],channels[1]);
+// Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
+// TODO (channel 12 as switch point to check the relays)
+#ifdef LUMI
+    joystickToRelays(channels[0],channels[1]);
+    if(channels[12]&1<<0)writeRelay(8,HIGH); else writeRelay(8,LOW);
+    if(channels[12]&1<<4)writeRelay(10,HIGH); else writeRelay(10,LOW);
+    if(channels[12]&1<<5)writeRelay(11,HIGH); else writeRelay(11,LOW);
+    if(channels[12]&1<<6)writeRelay(9,HIGH); else writeRelay(9,LOW);
+    if(channels[12]&1<<2)writeRelay(6,HIGH); else writeRelay(6,LOW);
+    if(channels[12]&1<<3)writeRelay(7,HIGH); else writeRelay(7,LOW);
+#endif
 
 #ifdef USE_MOTOR
 if(!animation.isPlaying()){
@@ -308,15 +341,17 @@ if(!animation.isPlaying()){
 
 #ifdef DEBUG
 Serial.print('{');
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 16; i++) {
       Serial.print(channels[i]);
-      if (i < 8) Serial.print(',');
+      if (i < 15) Serial.print(',');
     }
     Serial.println("},");
 #endif
 
+#ifdef ANIMATION_KEY
 if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying())animation.start();
 if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
+#endif
 
 // RS485 passthrough of Remote data (for eyes, etc)
 #ifdef USE_RS485
@@ -381,7 +416,27 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
 }  // end of main
 
+void setup1(){
+  #ifdef USB_JOYSTICK
+  Joystick.begin(); 
+#endif
+}
 
+void loop1(){
+  static unsigned long looptime1;
+  if(millis()>looptime1+49){
+    looptime1=millis();
+    #ifdef USB_JOYSTICK
+    Joystick.X(map(channels[2],0,255,0,1023));
+    Joystick.Y(map(channels[3],0,255,0,1023));
+    Joystick.Z(map(channels[5],0,255,0,1023));
+    Joystick.Zrotate(map(channels[9],0,255,0,1023));
+  
+    if(channels[11]&1<<4)Joystick.button(1,true); else Joystick.button(1,false);
+    if(channels[11]&1<<6)Joystick.button(4,true); else Joystick.button(4,false);
+    #endif
+  }
+}
 
 #ifdef USE_RS485
 void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data) {
@@ -418,7 +473,9 @@ void processScreen(int mode, int position) {
     if (mode == IDLE) display.println(F("IDLE"));
     // print keypad char
     display.setCursor(50, 0);
+    #ifdef KEYPAD_CHANNEL
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
+    #endif
     display.setCursor(70, 0);
     if (animation.isPlaying()) display.print (F("anim run"));
     else display.print (F("anim stop"));

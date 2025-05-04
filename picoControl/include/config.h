@@ -22,6 +22,7 @@
 #define HIGH_SPEED 90 
 // when no scaling used:
 #define MAX_SPEED 50
+#define USB_JOYSTICK
 
 // for serial output on the RJ45 socket
 #define USE_RS485 (1)
@@ -36,11 +37,11 @@
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
 
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 3
-#define SWITCH_CHANNEL 4 //second switch channel will be +1, next up + 2 and + 3
+//#define KEYPAD_CHANNEL 3
+//#define VOLUME_CHANNEL 3
+//#define SWITCH_CHANNEL 4 //second switch channel will be +1, next up + 2 and + 3
 
-#define ANIMATION_KEY (32) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+//#define ANIMATION_KEY (32) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
 
 #endif
 
