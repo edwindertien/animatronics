@@ -5,6 +5,7 @@
 #include "Motor.h"
 #include "Audio.h"
 
+
 #define DIRECT 0
 #define TOGGLE 1
 #define TRIGGER 2
@@ -37,19 +38,24 @@ class Action {
 
 #ifdef LUMI
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 3
+#define NUM_ACTIONS 6
 Action myActionList[NUM_ACTIONS] = {
-  Action('1', -1, DIRECT, nullptr, 100, "/sample1.mp3", &player2),
-  //Action('1', -1, DIRECT, &tandkrans, -100),
-  //Action('2', -1, DIRECT, &tandkrans, -100),
-  //Action('3', 3, DIRECT),
-  //Action('4', 4, DIRECT),
-  Action(10, 4, DIRECT), // on button s
-  Action(11, 5, DIRECT),
+  Action(0,10,DIRECT),
+  Action(2,6,DIRECT),
+  Action(3,7,DIRECT),
+  Action(4,9,DIRECT),
+  Action(5,8,DIRECT),
+  Action(6,11,DIRECT)
+  // if(channels[12]&1<<0)writeRelay(10,HIGH); else writeRelay(10,LOW);
+  // if(channels[12]&1<<4)writeRelay(9,HIGH); else writeRelay(9,LOW);
+  // if(channels[12]&1<<5)writeRelay(8,HIGH); else writeRelay(8,LOW);
+  // if(channels[12]&1<<6)writeRelay(11,HIGH); else writeRelay(11,LOW);
+  // if(channels[12]&1<<2)writeRelay(6,HIGH); else writeRelay(6,LOW); // wheels out
+  // if(channels[12]&1<<3)writeRelay(7,HIGH); else writeRelay(7,LOW); // wheels in
 };
 #endif
 
-#ifdef ROBOT_LOVE
+#ifdef ANIMAL_LOVE
 #define NUM_ACTIONS 6
 Action myActionList[NUM_ACTIONS] = {
 //  Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),

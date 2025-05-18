@@ -59,7 +59,7 @@ void writeRelay(int relay,bool state){
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(57600);//RS485
+  Serial2.begin(RS485_BAUD);//RS485
   pinMode(22, OUTPUT);//RS485 S-R
 
   pinMode(LED_BUILTIN, OUTPUT);
@@ -105,6 +105,7 @@ void loop() {
 
 
   /// and now for a blink:
+  #ifdef BLINK_KEY
   if (getRemoteSwitch(BLINK_KEY) && !blinking)  {
     blinking = 1;
     blinktimer = 10;
@@ -117,6 +118,7 @@ void loop() {
       eyeServo[5].write(servoCenters[5]); // fixed level
     }
   }
+  #endif
   ///
 
   if (message.buttons == 0) {

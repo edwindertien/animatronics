@@ -19,16 +19,17 @@
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
 // button actions, samples
 #include "config.h"  // the specifics for the controlled robot or vehicle
-#include "Action.h"  // 
-
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
 //                                           0    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#ifdef LUMI
 const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#else 
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#endif
 //                                           X    Y nb kp vo sw sw sw sw
 //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -142,11 +143,7 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
 
-#ifdef USE_AUDIO
-DFRobot_DF1201S player1,player2;
-SoftwareSerial player1port(7, 6);
-SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
-#endif
+
 
 // running modes
 #define IDLE 0
@@ -163,12 +160,20 @@ Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontrol
 # else
 Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
 Motor motorRight(28, 21, 22, 1);  //
-//Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
+Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
 #endif
 #endif
 
+
+#include "Action.h"  // needs audio and the available motor's to link actions to.
 #include "Animation.h"
 Animation animation(defaultAnimation, STEPS);
+
+#ifdef USE_AUDIO
+DFRobot_DF1201S player1,player2;
+SoftwareSerial player1port(7, 6);
+SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
+#endif
 
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
@@ -243,11 +248,11 @@ audioInit(&player1, &player1port, &player2, &player2port);
 #ifdef USE_MOTOR
   motorLeft.init();
   motorRight.init();
- // tandkrans.init();
+  tandkrans.init();
 #endif
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
-  DynamixelInit(57600, RS485_SR);
+  DynamixelInit(RS_485_BAUD, RS485_SR);
 #endif
 
   // radio on Serial2: CRSF or APC RF:
@@ -303,12 +308,13 @@ void loop() {
 // TODO (channel 12 as switch point to check the relays)
 #ifdef LUMI
     joystickToRelays(channels[0],channels[1]);
-    if(channels[12]&1<<0)writeRelay(8,HIGH); else writeRelay(8,LOW);
-    if(channels[12]&1<<4)writeRelay(10,HIGH); else writeRelay(10,LOW);
-    if(channels[12]&1<<5)writeRelay(11,HIGH); else writeRelay(11,LOW);
-    if(channels[12]&1<<6)writeRelay(9,HIGH); else writeRelay(9,LOW);
-    if(channels[12]&1<<2)writeRelay(6,HIGH); else writeRelay(6,LOW);
-    if(channels[12]&1<<3)writeRelay(7,HIGH); else writeRelay(7,LOW);
+    // next section moved to (std) using getButton
+    // if(channels[12]&1<<0)writeRelay(10,HIGH); else writeRelay(10,LOW);
+    // if(channels[12]&1<<4)writeRelay(9,HIGH); else writeRelay(9,LOW);
+    // if(channels[12]&1<<5)writeRelay(8,HIGH); else writeRelay(8,LOW);
+    // if(channels[12]&1<<6)writeRelay(11,HIGH); else writeRelay(11,LOW);
+    // if(channels[12]&1<<2)writeRelay(6,HIGH); else writeRelay(6,LOW); // wheels out
+    // if(channels[12]&1<<3)writeRelay(7,HIGH); else writeRelay(7,LOW); // wheels in
 #endif
 
 #ifdef USE_MOTOR
