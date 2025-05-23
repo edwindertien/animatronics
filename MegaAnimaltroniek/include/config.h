@@ -12,6 +12,7 @@ int servoPins[] = {24, 25, 26, 27, 28, 29};
 ////// hardware specifics for animaltroniek wezens specifiek
 #ifdef VIS
 #define RS485_BAUD 57600
+
 // RELAY (2 groups, 0..7 and 8..15)
 // r0 oorvinnen   
 // r1 staart   
@@ -53,6 +54,7 @@ int servoMax[] =     {110, 110, 110, 110, 80, 80};
 
 #ifdef KREEFT
 #define RS485_BAUD 57600
+
 // [0] ratel  40
 // [1] tril achter  A9
 // [2] bokken  41
@@ -120,34 +122,28 @@ int servoMax[] =     {130, 130, 130, 130, 90, 90};
 
 #ifdef ANIMAL_LOVE
 #define RS485_BAUD 9600
+
 #define NUM_ACTIONS 8
 Action myActionList[NUM_ACTIONS] = {
-Action('1', 0, DIRECT),  // 0 vinnen
-Action('2', 1, DIRECT),  // 
-Action('3', 2, DIRECT),
-Action('4', 3, DIRECT),
+Action(5, 0, DIRECT),  //water
+Action(6, 1, DIRECT),  //blaas
+Action(8, 2, DIRECT),  //L+R
+Action(10, 3, DIRECT), // BEK
 Action('5', 4, DIRECT),
 Action('6', 5, DIRECT),
 Action('7', 6, DIRECT),
 Action('8', 7, DIRECT),
-// Action('1', 8, DIRECT),  // 0 vinnen
-// Action('2', 9, DIRECT),  // 
-// Action('3', 10, DIRECT),
-// Action('4', 11, DIRECT),
-// Action('5', 12, DIRECT),
-// Action('6', 13, DIRECT),
-// Action('7', 14, DIRECT),
-// Action('8', 15, DIRECT),
 };
 
-int servoMins[] =    { 60, 60, 60, 60, 45, 45};
-int servoCenters[] = { 90, 90, 90, 90, 46, 46}; // voor zwaardvis
-int servoMax[] =     {110, 110, 110, 110, 80, 80};
+int servoMins[] =    { 40, 40, 40, 40, 40, 40};
+int servoCenters[] = { 90, 90, 90, 90, 90, 90}; // voor zwaardvis
+int servoMax[] =     {140, 140, 140, 140, 140, 140};
 
 #endif
 
 #ifdef SCHILDPAD
 #define RS485_BAUD 57600
+
 // varkentje toeter 40
 // hoofd lr A9
 // flipper 41

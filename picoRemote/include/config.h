@@ -19,10 +19,10 @@
 // std Grove I2C has SCL and SDA swapped with respect to OLED connector (!)
 // 
 #define DEBUG (1)
-//#define ANIMAL_LOVE (1)
+#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ALAN (1)
-#define LUMI (1)
+//#define LUMI (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define AMI (1)
@@ -146,13 +146,13 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to
 #define FAST_MODE 1.5
 #define RF_MAX_CHANNEL 16
 //                                           0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,19, 8,20,21,23,23,23,23,23,23,23,23,23};
+unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,19,19,20,21,22,23,23,23,23,23,23,23,23};
 // originally, the latest 'universal remote' for EXOOT uses
 //                          X    Y    bt  sw  vol k2a k2b k1a k1b
 // int transmitBuffer[9] = {127, 127, 0,  0,  0,  0,  0,  0,  0};
 
 int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // used channels on the mux
-int switchChannel[] = {1,1,1,1,2,2,2,2,0,0,0,0,0,0,0,0};  // switch type channels
+int switchChannel[] = {2,2,2,2,1,1,1,2,1,1,0,0,0,0,0,1};  // switch type channels
 int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
 #endif
 

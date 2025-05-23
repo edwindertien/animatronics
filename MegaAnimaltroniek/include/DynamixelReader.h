@@ -1,6 +1,8 @@
 #ifndef __DYNAMIXEL_READER_H__
 #define __DYNAMIXEL_READER_H__
 
+
+
 #define DYNAMIXEL_BUFFER_SIZE (128) /* Just a lot so that it will not overflow */
 #define BOARD_ID 13
 

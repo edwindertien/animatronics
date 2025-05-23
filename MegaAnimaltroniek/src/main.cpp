@@ -2,16 +2,28 @@
 // Robot Receiver for animatronic
 // using animatronics shield v3.1
 // on an Arduino MEGA - 'toeters en bellen'
-// receives commands through RS485
+// receives commands through RS485 or RF, make sure the 
+// currently in use for Animaltroniek and Animal_Love
+// check config.h for specific settings. 
+// 
+// currently this source expects 9 channels over RF or RS485 (check baudrate)
+// controlling up to 16 relays and 6 eye-servos
+// servos are xL, xR, yL, yR, bL, bR
 //
 #include <Arduino.h>
-//#define DEBUG (1)
+#define DEBUG (1)
 #include "Action.h"
 
 #include "config.h"
 
 #include <Servo.h>
 Servo eyeServo[6];
+
+#ifdef ANIMAL_LOVE
+#define PORT Serial1
+#else
+#define PORT Serial2
+#endif
 
 #include "DynamixelReader.h"
 #define REMOTE_BUFFER 64
@@ -30,6 +42,7 @@ Message message = {
   .switches3 = 0,
   .switches4 = 0
 };
+
 
 
 bool getRemoteSwitch(char button) {
@@ -59,7 +72,8 @@ void writeRelay(int relay,bool state){
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(RS485_BAUD);//RS485
+
+  PORT.begin(RS485_BAUD);//RS485
   pinMode(22, OUTPUT);//RS485 S-R
 
   pinMode(LED_BUILTIN, OUTPUT);
@@ -119,7 +133,7 @@ void loop() {
     }
   }
   #endif
-  ///
+  ///// and, the eye-servos feeding on the nunchuck (joystick) information:
 
   if (message.buttons == 0) {
     eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
@@ -127,18 +141,27 @@ void loop() {
     eyeServo[2].write(map(message.ySetpoint, 255, 0, servoMins[2], servoMax[2]));
     eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
   }
-  //--------- then for the eyelids --------------
+  //--------- then for the eyelids when the 2nd button is pressed --------------
   if (message.buttons == 64) {
     int leftLidvalue = (message.ySetpoint - 127) + min(127 - message.xSetpoint, 0);
     int rightLidvalue = (message.ySetpoint - 127) + min(message.xSetpoint - 127, 0);
+    #ifdef ANIMAL_LOVE
+    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMax[4], servoMins[4])); // inverted servo position!! 
+    #else
     eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4]));
+    #endif
     if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
     //Serial.println(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
   }
   //-----------  DURING DRIVING (MOTOR ON  -------------
   if (message.buttons == 128 || message.buttons == 192) {
+    #ifdef ANIMAL_LOVE
+    eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
+    eyeServo[1].write(map(message.xSetpoint, 0, 255, servoMins[1], servoMax[1]));
+    #else
     eyeServo[0].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[0], servoMins[0]));
     eyeServo[1].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[1], servoMins[1]));
+    #endif
     eyeServo[2].write(map(message.ySetpoint, 0, 255, servoMins[2], servoMax[2]));
     eyeServo[3].write(map(message.ySetpoint, 0, 255, servoMins[3], servoMax[3]));
   }

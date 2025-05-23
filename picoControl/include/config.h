@@ -44,7 +44,7 @@
 #define VOLUME_CHANNEL 4
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
-#define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+#define ANIMATION_KEY (30) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
 
 #endif
 

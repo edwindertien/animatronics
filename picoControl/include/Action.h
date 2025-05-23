@@ -59,12 +59,29 @@ Action myActionList[NUM_ACTIONS] = {
 #define NUM_ACTIONS 6
 Action myActionList[NUM_ACTIONS] = {
 //  Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),
-  Action('1', -1, DIRECT, &tandkrans, -100),
-  Action('2', -1, DIRECT, &tandkrans, -100),
-  Action('3', 3, DIRECT),
-  Action('4', 4, DIRECT),
-  Action(10, 4, DIRECT),
-  Action(11, 5, DIRECT),
+  Action(0, -1, DIRECT, &tandkrans, 100),
+  Action(1, -1, DIRECT, &tandkrans, -100),
+  Action(18, 0, DIRECT), // poten
+  Action(2, 3, DIRECT), // lift
+  Action(3, 4, DIRECT), // lift
+  Action(7, 5, DIRECT), // ratel
+
+// switch 0..7
+// [0] krans
+// [1] krans
+// [2] lift
+//  3 lift
+//  5 water
+//  6 blaas
+//  7 ratel
+// switch 8..15
+// 8 L+R
+// 10 bek 
+// switch 16..23
+// 18 poten
+// switch 24..31
+// 30 sequence
+
 };
 #endif
 

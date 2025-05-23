@@ -12,13 +12,16 @@
  *   
  * As a user, you are responsible for initializing the Serial port (Serial.begin())    
  **********************************************************************/
-#if defined(ARDUINO) && ARDUINO >= 100
-  #include "Arduino.h"
-#else
-  #include "WProgram.h"
-#endif
+#include <Arduino.h>
 #include "DynamixelReader.h"
 
+
+
+#ifdef ANIMAL_LOVE
+#define PORT Serial1
+#else
+#define PORT Serial2
+#endif
 
 //#define DEBUG (1) /* Do undef for no debugging*/
 
@@ -49,9 +52,9 @@ void DynamixelPoll()
   static unsigned char DataLengthBuffer;
   static unsigned int checksumBuffer = 0;
 
-  if (Serial2.available()>0)
+  if (PORT.available()>0)
   {
-    c = Serial2.read();
+    c = PORT.read();
 
 #ifdef DEBUG
     Serial.print(c,HEX);

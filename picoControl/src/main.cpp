@@ -158,9 +158,15 @@ Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 f
 Motor motorRight(28, 27, 26, 1);  //
 Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
 # else
+#ifdef ANIMAL_LOVE
+Motor motorLeft(18, 19, 20, 6);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorRight(26, 27, 28, 7);  //
+Motor tandkrans(21, 22, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
+#else
 Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
 Motor motorRight(28, 21, 22, 1);  //
 Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
+#endif
 #endif
 #endif
 
