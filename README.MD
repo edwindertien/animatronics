@@ -7,7 +7,7 @@ Currently there are three physical designs:
 
 <img src="images/picoArtnet.jpg" alt="pico Artnet PCB" width="300">
 
-= the [MegaAnimaltroniek](/MegaAnimaltroniek/) board is used to controls the bell's and whistles on the animaltroniek machines. Effectively it uses a design developed earlier as 'main' control board. For the animalLove robot it is equipped with a 433Mhz RF link instead of the (standard) RS485 over UTP cable
+- the [MegaAnimaltroniek](/MegaAnimaltroniek/) board is used to controls the bell's and whistles on the animaltroniek machines. Effectively it uses a design developed earlier as 'main' control board. For the animalLove robot it is equipped with a 433Mhz RF link instead of the (standard) RS485 over UTP cable
 - the [picoArtnetDMX](/picoArtnetDMX/picoArtnetDMX)  unit which connects to artnet (ethernet) or WIFI and sends DMX data. This has been used in the 'Clara and the Sun' performance by the Frisian Project Orchestra.
 - the [picoControl](/picoControl) module which is designed to interface with different radio modules, links to RS485/dynamixel, has two sound modules and expansion ports for Relays and / or Servos (using PCF9685) or PCF9635 (pin compatible) for Relais only. Currently in version 2 (V2.0) and the main PCB in new machines, including LUMI, Animaltroniek, animalLove and more
 - the [picoServo](/picoServo) node, a very small board with RS485, -just- three input and three output ports, power supply and grove I2C socket. THis module has been used in the head (as Servo controller) of 'Clara'
