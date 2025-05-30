@@ -52,7 +52,7 @@ unsigned int buttons = 0;
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, DISPLAY_HEIGHT, &Wire1);
-void processScreen(int mode, int position); // look at the bottom, 
+void processScreen(int mode, int position, float battery); // look at the bottom, 
 #endif
 
 // NUNCHUCK
@@ -98,6 +98,12 @@ int keypadPins[] = { 2, 3, 11, 12, 13, 14, 15 };
 keypad mypad(keypadPins, 7);
 #endif
 
+#ifdef USE_MAX17048
+#include "Adafruit_MAX1704X.h"
+
+Adafruit_MAX17048 maxlipo;
+#endif
+
 void setup() {
   // for debug
   pinMode(LED_BUILTIN, OUTPUT);
@@ -132,6 +138,16 @@ void setup() {
 #ifdef USE_KEYPAD
   mypad.begin();  // Initialize the keypad
 #endif
+#ifdef USE_MAX17048
+while (!maxlipo.begin()) {
+    Serial.println(F("Couldnt find Adafruit MAX17048?\nMake sure a battery is plugged in!"));
+    delay(2000);
+  }
+  Serial.print(F("Found MAX17048"));
+  Serial.print(F(" with Chip ID: 0x")); 
+  Serial.println(maxlipo.getChipID(), HEX);
+#endif
+
 }
 
 void loop() {  
@@ -227,7 +243,19 @@ Serial.println("");
   static unsigned long screentime;
   if(millis()>screentime+99){
     screentime = millis();
-    processScreen(1,4); 
+#ifdef USE_MAX17048
+  float cellVoltage = maxlipo.cellVoltage();
+  if (isnan(cellVoltage)) {
+    Serial.println("Failed to read cell voltage, check battery is connected!");
+    delay(2000);
+    return;
+  }
+  processScreen(1,4,maxlipo.cellPercent()); 
+  #else
+processScreen(1,4,0.0); 
+#endif
+
+    
   }
 #endif
 } // end of main loop
@@ -290,7 +318,7 @@ void loop1(){
 }
 ////////////////// to be moved to libraries: 
 
-void processScreen(int menu, int position){
+void processScreen(int menu, int position, float battery){
     display.clearDisplay();
     if (menu == 0) {
       display.fillRect(0, 0, 4, position, SSD1306_WHITE);
@@ -302,7 +330,8 @@ void processScreen(int menu, int position){
         display.setCursor(0, 0);  // Start at top-left corner
         display.setTextSize(1);   // Draw 2X-scale text
         display.setTextColor(SSD1306_WHITE);
-        if((char)channels[19] != ' ') display.println((char)channels[19]);
+        if((char)channels[19] != ' ') display.print((char)channels[19]);
+        if(battery>0.0) {display.setCursor(0,33);display.print("battery ");display.print(battery,2);display.print(" %");}
         //display.println(F("123456789012345678901234567890"));
         display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }

@@ -19,10 +19,10 @@
 // std Grove I2C has SCL and SDA swapped with respect to OLED connector (!)
 // 
 #define DEBUG (1)
-#define ANIMAL_LOVE (1)
+//#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ALAN (1)
-//#define LUMI (1)
+#define LUMI (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define AMI (1)
@@ -55,6 +55,7 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to
 #ifdef LUMI
 #define USE_CRSF (1)
 #define DISPLAY_HEIGHT 64
+#define USE_MAX17048 (1)
 //#define USE_APC (1)
 //#define USE_DMX (1)
 //#define USE_USB_MIDI (1)
