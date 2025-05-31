@@ -3,14 +3,14 @@
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define ANIMAL_LOVE
+//#define ANIMAL_LOVE
 //#define KLARA
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
 //#define AMI (1)
-//#define LUMI (1)
+#define LUMI (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 

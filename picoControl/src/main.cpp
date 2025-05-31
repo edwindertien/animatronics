@@ -143,6 +143,26 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
 
+#ifdef LUMI
+#define NUM_TRACKS 3
+String tracklist[NUM_TRACKS] = {
+  "arrival.mp3",
+  "farewell.mp3",
+  "moving.mp3",
+};
+
+#define NUM_SAMPLES 8
+String samplelist[NUM_SAMPLES] = {
+  "yes.mp3",
+  "no.mp3",
+  "wortel.mp3",
+  "appel.mp3",
+    "huh.mp3",
+  "why.mp3",
+  "grrrr.mp3",
+  "alarm.mp3"
+};
+#endif
 
 
 // running modes
@@ -314,6 +334,19 @@ void loop() {
 // TODO (channel 12 as switch point to check the relays)
 #ifdef LUMI
     joystickToRelays(channels[0],channels[1]);
+
+      //    if(channels[4]>10) {
+      //     int samplenr = constrain(map(channels[4],0,255,0,NUM_SAMPLES),0,NUM_SAMPLES-1);
+      //     display.fillRect(0,47,6*samplelist[samplenr].length()+2,10,SSD1306_WHITE);
+      //     display.setTextColor(SSD1306_BLACK);
+      //     display.setCursor(1,48);
+      //     display.print(samplelist[samplenr]);}
+      // if(channels[6]>10) {
+      //     int tracknr = constrain(map(channels[6],0,255,0,NUM_TRACKS),0,NUM_TRACKS-1);
+      //     display.fillRect(64,47,6*tracklist[tracknr].length()+2,10,SSD1306_WHITE);
+      //     display.setTextColor(SSD1306_BLACK);
+      //     display.setCursor(64,48);
+      //     display.print(tracklist[tracknr]);}
     // next section moved to (std) using getButton
     // if(channels[12]&1<<0)writeRelay(10,HIGH); else writeRelay(10,LOW);
     // if(channels[12]&1<<4)writeRelay(9,HIGH); else writeRelay(9,LOW);

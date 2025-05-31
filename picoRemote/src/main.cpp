@@ -100,9 +100,30 @@ keypad mypad(keypadPins, 7);
 
 #ifdef USE_MAX17048
 #include "Adafruit_MAX1704X.h"
-
 Adafruit_MAX17048 maxlipo;
 #endif
+
+#ifdef LUMI
+#define NUM_TRACKS 3
+String tracklist[NUM_TRACKS] = {
+  "arrival.mp3",
+  "farewell.mp3",
+  "moving.mp3",
+};
+
+#define NUM_SAMPLES 8
+String samplelist[NUM_SAMPLES] = {
+  "yes.mp3",
+  "no.mp3",
+  "wortel.mp3",
+  "appel.mp3",
+    "huh.mp3",
+  "why.mp3",
+  "grrrr.mp3",
+  "alarm.mp3"
+};
+#endif
+
 
 void setup() {
   // for debug
@@ -147,8 +168,10 @@ while (!maxlipo.begin()) {
   Serial.print(F(" with Chip ID: 0x")); 
   Serial.println(maxlipo.getChipID(), HEX);
 #endif
-
 }
+
+
+
 
 void loop() {  
 #ifdef USE_CRSF
@@ -322,7 +345,7 @@ void processScreen(int menu, int position, float battery){
     display.clearDisplay();
     if (menu == 0) {
       display.fillRect(0, 0, 4, position, SSD1306_WHITE);
-      display.setTextSize(1);               // Normal 1:1 pixel scale
+      display.setTextSize(1.5);               // Normal 1:1 pixel scale
       display.setTextColor(SSD1306_WHITE);  // Draw white text
       display.setCursor(10, 0);             // Start at top-left corner
     } else if (menu == 1) {
@@ -332,9 +355,21 @@ void processScreen(int menu, int position, float battery){
         display.setTextColor(SSD1306_WHITE);
         if((char)channels[19] != ' ') display.print((char)channels[19]);
         if(battery>0.0) {display.setCursor(0,33);display.print("battery ");display.print(battery,2);display.print(" %");}
-        //display.println(F("123456789012345678901234567890"));
+
         display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }
+      if(channels[4]>10) {
+          int samplenr = constrain(map(channels[4],0,255,0,NUM_SAMPLES),0,NUM_SAMPLES-1);
+          display.fillRect(0,47,6*samplelist[samplenr].length()+2,10,SSD1306_WHITE);
+          display.setTextColor(SSD1306_BLACK);
+          display.setCursor(1,48);
+          display.print(samplelist[samplenr]);}
+      if(channels[6]>10) {
+          int tracknr = constrain(map(channels[6],0,255,0,NUM_TRACKS),0,NUM_TRACKS-1);
+          display.fillRect(64,47,6*tracklist[tracknr].length()+2,10,SSD1306_WHITE);
+          display.setTextColor(SSD1306_BLACK);
+          display.setCursor(64,48);
+          display.print(tracklist[tracknr]);}
     } else if (menu == 2) {
       display.setCursor(0, 0);  // Start at top-left corner
       display.setTextSize(1);   // Draw 2X-scale text
