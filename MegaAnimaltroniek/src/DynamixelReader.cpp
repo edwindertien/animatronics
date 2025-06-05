@@ -20,7 +20,7 @@
 #ifdef ANIMAL_LOVE
 #define PORT Serial1
 #else
-#define PORT Serial2
+#define PORT Serial1
 #endif
 
 //#define DEBUG (1) /* Do undef for no debugging*/

@@ -171,6 +171,7 @@ String samplelist[NUM_SAMPLES] = {
 #define PLAYBACK 2
 
 #ifdef USE_MOTOR
+#define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
 #include <Motor.h>
 #ifdef BOARD_V1
 // left pin, right pin, pwm pin, brake relay pin. set unused pins to -1
@@ -179,8 +180,8 @@ Motor motorRight(28, 27, 26, 1);  //
 Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
 # else
 #ifdef ANIMAL_LOVE
-Motor motorLeft(18, 19, 20, 6);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
-Motor motorRight(26, 27, 28, 7);  //
+Motor motorLeft(18, 19, 20, 1);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorRight(26, 27, 28, 2);  //
 Motor tandkrans(21, 22, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
 #else
 Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
@@ -293,6 +294,8 @@ audioInit(&player1, &player1port, &player2, &player2port);
 
 void loop() {
   static int mode;  // check the status
+  static bool brakeState = 1;
+  static unsigned long brakeTimer;
 // poll functions outside the 20Hz main loop
 #ifndef USE_CRSF
   RadioPoll();
@@ -364,21 +367,24 @@ if(!animation.isPlaying()){
   #else
   if(channels[2]==192){
   #endif
-  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)));
-  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)));
+  brakeTimer = BRAKE_TIMEOUT;
+  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
+  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
 }
   else if (channels[2]==128){
-    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)));
-    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)));
+    brakeTimer = BRAKE_TIMEOUT;
+    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
   
   }
   else {
-    motorLeft.setSpeed(0);
-    motorRight.setSpeed(0);
+    motorLeft.setSpeed(0,brakeState);
+    motorRight.setSpeed(0,brakeState);
   }
    #else
-   motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
-   motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)));
+   brakeTimer = BRAKE_TIMEOUT;
+   motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
+   motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
 
    #endif
 }
@@ -386,9 +392,9 @@ if(!animation.isPlaying()){
 
 #ifdef DEBUG
 Serial.print('{');
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 9; i++) {
       Serial.print(channels[i]);
-      if (i < 15) Serial.print(',');
+      if (i < 8) Serial.print(',');
     }
     Serial.println("},");
 #endif
@@ -423,8 +429,8 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     }
 
       #ifdef USE_MOTOR
-      motorLeft.setSpeed(0);
-      motorRight.setSpeed(0);
+      motorLeft.setSpeed(0,brakeState);
+      motorRight.setSpeed(0,brakeState);
       #endif
     }
 #ifdef USE_CRSF
@@ -444,6 +450,11 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     crsf.nudgeTimeOut();
 #else
     nudgeTimeOut();
+#endif
+
+#ifdef USE_MOTOR
+  if(brakeTimer > 0) {brakeTimer --;brakeState = 0;}
+  if(brakeTimer == 0) brakeState = 1;
 #endif
 
   }  // the end of the 20Hz loop

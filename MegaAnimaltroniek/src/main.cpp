@@ -136,34 +136,41 @@ void loop() {
   ///// and, the eye-servos feeding on the nunchuck (joystick) information:
 
   if (message.buttons == 0) {
-    eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
-    eyeServo[1].write(map(message.xSetpoint, 0, 255, servoMins[1], servoMax[1]));
+    #ifdef ANIMAL_LOVE
+    eyeServo[0].write(map(message.xSetpoint, 255, 0, servoMins[0], servoMax[0]));
+    eyeServo[1].write(map(message.xSetpoint, 255, 0, servoMins[1], servoMax[1]));
     eyeServo[2].write(map(message.ySetpoint, 255, 0, servoMins[2], servoMax[2]));
     eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
+    #else
+    eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
+    eyeServo[1].write(map(message.xSetpoint, 255, 0, servoMins[1], servoMax[1]));
+    eyeServo[2].write(map(message.ySetpoint, 0, 255, servoMins[2], servoMax[2]));
+    eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
+    #endif
   }
   //--------- then for the eyelids when the 2nd button is pressed --------------
   if (message.buttons == 64) {
     int leftLidvalue = (message.ySetpoint - 127) + min(127 - message.xSetpoint, 0);
     int rightLidvalue = (message.ySetpoint - 127) + min(message.xSetpoint - 127, 0);
     #ifdef ANIMAL_LOVE
-    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMax[4], servoMins[4])); // inverted servo position!! 
+    eyeServo[4].write(map(leftLidvalue, 255, 0, servoMax[4], servoMins[4])); // inverted servo position!! 
     #else
     eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4]));
     #endif
-    if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
+    if (!blinking) eyeServo[5].write(map(rightLidvalue, 255, 0, servoMins[5], servoMax[5]));
     //Serial.println(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
   }
   //-----------  DURING DRIVING (MOTOR ON  -------------
   if (message.buttons == 128 || message.buttons == 192) {
     #ifdef ANIMAL_LOVE
-    eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
-    eyeServo[1].write(map(message.xSetpoint, 0, 255, servoMins[1], servoMax[1]));
+    eyeServo[0].write(map(message.xSetpoint, 255, 0, servoMins[0], servoMax[0]));
+    eyeServo[1].write(map(message.xSetpoint, 255, 0, servoMins[1], servoMax[1]));
     #else
     eyeServo[0].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[0], servoMins[0]));
     eyeServo[1].write(map(127 + 2 * (message.xSetpoint - 127), 0, 255, servoMax[1], servoMins[1]));
     #endif
-    eyeServo[2].write(map(message.ySetpoint, 0, 255, servoMins[2], servoMax[2]));
-    eyeServo[3].write(map(message.ySetpoint, 0, 255, servoMins[3], servoMax[3]));
+    eyeServo[2].write(map(message.ySetpoint, 255, 0, servoMins[2], servoMax[2]));
+    eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
   }
 #ifdef DEBUG
   Serial.print('{');

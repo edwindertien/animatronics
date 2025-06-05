@@ -24,7 +24,7 @@ class Motor {
 
     void init();
     // Method to set motor speed (positive for forward, negative for reverse, 0 for stop)
-    void setSpeed(int value);
+    void setSpeed(int value, bool braking);
 };
 
 #endif

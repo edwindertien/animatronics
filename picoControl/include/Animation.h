@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
-#define STEPS 985
+#define STEPS 967
 #define PAUSE 800 // Pause after each complete loop (in loops)
 
 typedef struct {

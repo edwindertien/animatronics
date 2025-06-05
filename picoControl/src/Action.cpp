@@ -76,7 +76,7 @@ void Action::trigger() {
 
   // Trigger motor speed if motor is initialized
   if (motor != nullptr) {
-      motor->setSpeed(motorvalue);  // Example: Setting motor speed to full (255). Adjust as needed.
+      motor->setSpeed(motorvalue,0);  // Example: Setting motor speed to full (255). Adjust as needed.
       //Serial.println("Motor speed set.");
   }
 
@@ -99,14 +99,14 @@ void Action::stop() {
 
       // Pause motor if it's initialized
       if (motor != nullptr) {
-          motor->setSpeed(0);  // Stop the motor
-          Serial.println("Motor stopped.");
+          motor->setSpeed(0,0);  // Stop the motor
+          //Serial.println("Motor stopped.");
       }
   
       // Pause sound if player is initialized
       if (player != nullptr) {
           player->pause();
-          Serial.println("Sound paused.");
+          //Serial.println("Sound paused.");
       }
       //   writeRelay(relay,LOW);
 

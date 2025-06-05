@@ -16,11 +16,11 @@ void Motor::init() {
   if(pwmPin >= 0)analogWrite(pwmPin, 0); // Set initial speed to 0
   if(pinA >= 0)digitalWrite(pinA, LOW); // Set initial direction to LOW
   if(pinB >= 0)digitalWrite(pinB, LOW);
-  if(brakeRelay >= 0)writeRelay(brakeRelay,1); // brake on
+  if(brakeRelay >= 0)writeRelay(brakeRelay,LOW); // brake on
 }
 
 // Method to set motor speed (positive for forward, negative for reverse, 0 for stop)
-void Motor::setSpeed(int value) {
+void Motor::setSpeed(int value, bool braking) {
   if (value >  MOTOR_DEADZONE) {
     if(pinA >= 0)digitalWrite(pinA, HIGH);  // Set direction to forward
     if(pinB >= 0)digitalWrite(pinB, LOW);
@@ -37,7 +37,7 @@ void Motor::setSpeed(int value) {
     if(pwmPin >= 0)analogWrite(pwmPin, 0); // Stop motor
     if(pinA >= 0)digitalWrite(pinA, LOW);
     if(pinB >= 0)digitalWrite(pinB, LOW);
-    if(brakeRelay >= 0)writeRelay(brakeRelay,0); 
+    if(braking){if(brakeRelay >= 0)writeRelay(brakeRelay,0); }
   }
 }
 

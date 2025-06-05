@@ -3,14 +3,14 @@
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
 //////////////////////////////////////////////////////////////////////////////////////////////
-//#define ANIMAL_LOVE
+#define ANIMAL_LOVE
 //#define KLARA
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
 //#define AMI (1)
-#define LUMI (1)
+//#define LUMI (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -21,8 +21,8 @@
 #define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
-#define LOW_SPEED 60  // used for scaling in the cross-mix function
-#define HIGH_SPEED 90 
+#define LOW_SPEED 130  // was 60 used for scaling in the cross-mix function
+#define HIGH_SPEED 160 // was 90  
 // when no scaling used:
 #define MAX_SPEED 50
 
