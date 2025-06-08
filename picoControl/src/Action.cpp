@@ -26,13 +26,13 @@ Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue) {
   init();
 }
 
-Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char* soundfile,  DFRobot_DF1201S* player) {
+Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue, int tracknr,  DFRobot_DF1201S* player) {
   this->button = button;
   this->relay = relay;
   this->mode = mode;
   this->motor = motor;
   this->motorvalue = motorvalue;
-  this->soundfile = soundfile;
+  this->tracknr = tracknr;
   this->player = player;
   state = 0;
   previousState = 0;
@@ -81,8 +81,11 @@ void Action::trigger() {
   }
 
   // Play sound if a soundfile is provided
-  if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
-      player->playSpecFile(soundfile);
+  //if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
+  //    player->playSpecFile(soundfile);
+  if (player != nullptr && tracknr>0){
+      player->playFileNum(tracknr);
+  
       //Serial.println(soundfile);
   }
       //  writeRelay(relay,HIGH);

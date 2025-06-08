@@ -12,3 +12,4 @@ Instead of the PCA9685 the PCA9635 is used which has a default 'HIGH' state so t
 
 A L9110S driver has been added in the schematic to drive the high-side power for the relays, but this has no effect (and, in error, only allows one relay board to be powered simultanously. Apparently the state where both outputs are high does not exist and the component does not follow its datasheet :-(  )
 
+eventually a wire of player1 is not connected to the linking resistors (lowest resistor on the PCB) - this has been adjusted with a wire. 

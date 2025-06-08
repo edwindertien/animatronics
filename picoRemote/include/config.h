@@ -56,6 +56,8 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to
 #define USE_CRSF (1)
 #define DISPLAY_HEIGHT 64
 #define USE_MAX17048 (1)
+#define USE_ENCODER (1)
+#define ENCODER_CHANNEL 24
 //#define USE_APC (1)
 //#define USE_DMX (1)
 //#define USE_USB_MIDI (1)
@@ -66,15 +68,15 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to
 //#define USE_NUNCHUCK (1)  // registered in channels[16],[17] and [18]
 #define SLOW_MODE 1.0     // scaling factor for nunchuck. set to 1 to have a 1:1 mapping
 #define FAST_MODE 1.0
-#define RF_MAX_CHANNEL 16
+#define RF_MAX_CHANNEL 16 // note that the last two channels are overwitten by RSSI and battery
 //                                           0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-unsigned char channelMap[RF_MAX_CHANNEL] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,21,22,23,23,23,23};
+unsigned char channelMap[RF_MAX_CHANNEL] = { 0, 1, 2, 3, 6, 5, 4, 7, 8, 9,21,22,23,24,23,23};
 // originally, the latest 'universal remote' for EXOOT uses
 //                          X    Y    bt  sw  vol k2a k2b k1a k1b
 // int transmitBuffer[9] = {127, 127, 0,  0,  0,  0,  0,  0,  0};
 
 int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // used channels on the mux
-int switchChannel[] = {0,0,0,0,0,0,0,0,0,0,1,1,1,2,2,1};  // switch type channels
+int switchChannel[] = {0,0,0,0,1,0,0,0,0,0,1,1,1,2,2,1};  // switch type channels
 int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
 #endif
 

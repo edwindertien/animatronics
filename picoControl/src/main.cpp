@@ -118,6 +118,38 @@ void joystickToRelays(int x, int y) {
   }
 }
 
+#ifdef LUMI
+#define NUM_TRACKS 15
+String tracklist[NUM_TRACKS] = 
+{
+  "/mp3/01-int.mp3",
+  "/mp3/02-dro.mp3",
+  "/mp3/03-maz.mp3",
+  "/mp3/04-sco.mp3",
+  "/mp3/05-spi.mp3",
+  "/mp3/06-pat.mp3",
+  "/mp3/07-moe.mp3",
+  "/mp3/08-wal.mp3",
+  "/mp3/09-poo.mp3",
+  "/mp3/10-cer.mp3",
+  "/mp3/11-opt.mp3",
+  "/mp3/12-kar.mp3",
+  "/mp3/13-and.mp3",
+  "/mp3/14-mid.mp3",
+  "/mp3/15-ora.mp3",
+};
+#define NUM_SAMPLES 6
+String samplelist[NUM_SAMPLES] = 
+{
+  "/mp3/01-alm.mp3",
+  "/mp3/02-ang.mp3",
+  "/mp3/03-slp.mp3",
+  "/mp3/04-mov.mp3",
+  "/mp3/05-noo.mp3",
+  "/mp3/06-yes.mp3"
+};
+
+#endif
 
 
 #ifdef USE_ENCODER
@@ -142,28 +174,6 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #include "DynamixelReader.h"
 #define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
-
-#ifdef LUMI
-#define NUM_TRACKS 3
-String tracklist[NUM_TRACKS] = {
-  "arrival.mp3",
-  "farewell.mp3",
-  "moving.mp3",
-};
-
-#define NUM_SAMPLES 8
-String samplelist[NUM_SAMPLES] = {
-  "yes.mp3",
-  "no.mp3",
-  "wortel.mp3",
-  "appel.mp3",
-    "huh.mp3",
-  "why.mp3",
-  "grrrr.mp3",
-  "alarm.mp3"
-};
-#endif
-
 
 // running modes
 #define IDLE 0
@@ -289,11 +299,15 @@ audioInit(&player1, &player1port, &player2, &player2port);
   RFinit();
   RFsetSettings(2);
 #endif
-
+// and now start up the channel buffer!
+      for (int n = 0; n < NUM_CHANNELS; n++) {
+        channels[n] = saveValues[n];
+      }
 }
 
 void loop() {
-  static int mode;  // check the status
+  static int mode = IDLE;  // check the status
+ static bool startedUp = false; 
   static bool brakeState = 1;
   static unsigned long brakeTimer;
 // poll functions outside the 20Hz main loop
@@ -319,6 +333,7 @@ void loop() {
 
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
+    if(crsf.crsfData[1] == 24) startedUp = true;
     if (crsf.crsfData[1] == 24 && mode == ACTIVE) {
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
@@ -336,27 +351,51 @@ void loop() {
 // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
 // TODO (channel 12 as switch point to check the relays)
 #ifdef LUMI
-    joystickToRelays(channels[0],channels[1]);
-
-      //    if(channels[4]>10) {
-      //     int samplenr = constrain(map(channels[4],0,255,0,NUM_SAMPLES),0,NUM_SAMPLES-1);
-      //     display.fillRect(0,47,6*samplelist[samplenr].length()+2,10,SSD1306_WHITE);
-      //     display.setTextColor(SSD1306_BLACK);
-      //     display.setCursor(1,48);
-      //     display.print(samplelist[samplenr]);}
-      // if(channels[6]>10) {
-      //     int tracknr = constrain(map(channels[6],0,255,0,NUM_TRACKS),0,NUM_TRACKS-1);
-      //     display.fillRect(64,47,6*tracklist[tracknr].length()+2,10,SSD1306_WHITE);
-      //     display.setTextColor(SSD1306_BLACK);
-      //     display.setCursor(64,48);
-      //     display.print(tracklist[tracknr]);}
-    // next section moved to (std) using getButton
-    // if(channels[12]&1<<0)writeRelay(10,HIGH); else writeRelay(10,LOW);
-    // if(channels[12]&1<<4)writeRelay(9,HIGH); else writeRelay(9,LOW);
-    // if(channels[12]&1<<5)writeRelay(8,HIGH); else writeRelay(8,LOW);
-    // if(channels[12]&1<<6)writeRelay(11,HIGH); else writeRelay(11,LOW);
-    // if(channels[12]&1<<2)writeRelay(6,HIGH); else writeRelay(6,LOW); // wheels out
-    // if(channels[12]&1<<3)writeRelay(7,HIGH); else writeRelay(7,LOW); // wheels in
+    // map the joystick input to the relay switches
+    if(getRemoteSwitch(0)) joystickToRelays(channels[0],channels[1]);
+    // and now for audio control
+     static int isPlaying = 0;
+     static int volume1;
+     int trackToPlay = channels[13]/8;
+     if(trackToPlay == 0 && isPlaying && channels[6]<100){
+       player1.pause();
+       isPlaying = 0;
+     }
+     else if (trackToPlay >0 && trackToPlay < (NUM_TRACKS+1) && trackToPlay !=isPlaying && channels[6]<100){
+       player1.playSpecFile(tracklist[trackToPlay-1]);
+       isPlaying = trackToPlay;
+     }
+     if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
+     volume1 = channels[4];
+     // the separate samples:
+     static int playingSample;
+     static int volume2;
+     if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
+     volume2 = channels[7];
+     if(channels[9]>(127+30) && (playingSample !=2)){
+      playingSample = 2;
+      player2.playSpecFile("/mp3/02-ang.mp3");
+     }
+     else if (channels[9]<(127-30) && (playingSample !=5)){
+      player2.playSpecFile("/mp3/05-noo.mp3");
+      playingSample = 5;
+     }
+     else if ((channels[11]&16) && (playingSample != 3)){
+      player2.playSpecFile("/mp3/03-slp.mp3");
+      playingSample = 3; 
+     }
+     else if ((channels[11]&64) && (playingSample != 6)){
+      player2.playSpecFile("/mp3/06-yes.mp3");
+      playingSample = 6; 
+     }
+     else if ((channels[0]<100) && (playingSample != 4)){
+      player2.playSpecFile("/mp3/04-mov.mp3");
+      playingSample = 4; 
+     }   
+      else if (((channels[12]&16) || (channels[12]&32)) && (playingSample != 1)){
+      player2.playSpecFile("/mp3/01-alm.mp3");
+      playingSample = 1; 
+     }   
 #endif
 
 #ifdef USE_MOTOR
@@ -391,8 +430,9 @@ if(!animation.isPlaying()){
 #endif
 
 #ifdef DEBUG
+// change nr of samples 16 into 9 
 Serial.print('{');
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 14; i++) {
       Serial.print(channels[i]);
       if (i < 8) Serial.print(',');
     }
@@ -412,6 +452,7 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     }
     DynamixelWriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
 #endif
+// now for the important mode / time-out settings
 
 #ifdef USE_CRSF
     if (crsf.getTimeOut() > 9 && mode == ACTIVE) {
@@ -439,7 +480,7 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     else if (getTimeOut() < 1 && mode == IDLE) {
 #endif
 
-      mode = ACTIVE;
+      if(startedUp) mode = ACTIVE;
     }
     ///// this is where the mapping to Relays and sounds takes place
     for (int n = 0; n < NUM_ACTIONS; n++) {

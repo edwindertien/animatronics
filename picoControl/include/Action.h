@@ -14,7 +14,8 @@ class Action {
   private:
   Motor* motor = nullptr;
   int motorvalue = 0;
-  const char* soundfile = nullptr;
+  //const char* soundfile = nullptr;
+  int tracknr = 0;
   DFRobot_DF1201S* player = nullptr;
     char button;
     int relay;
@@ -26,8 +27,9 @@ class Action {
   public:
   Action(char button, int relay, int mode);
   Action(char button, int relay, int mode, Motor* motor, int motorvalue);
-  Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
-    
+  //Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
+  Action(char button, int relay, int mode, Motor* motor, int motorvalue, int tracknr, DFRobot_DF1201S* player);
+       
     void update();
     void trigger();
     void stop();

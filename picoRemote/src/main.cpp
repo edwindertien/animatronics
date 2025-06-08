@@ -52,7 +52,7 @@ unsigned int buttons = 0;
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
 #include <Adafruit_SSD1306.h>  // display driver
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, DISPLAY_HEIGHT, &Wire1);
-void processScreen(int mode, int position, float battery); // look at the bottom, 
+void processScreen(int mode, int position, float battery, int tracknr); // look at the bottom, 
 #endif
 
 // NUNCHUCK
@@ -104,26 +104,38 @@ Adafruit_MAX17048 maxlipo;
 #endif
 
 #ifdef LUMI
-#define NUM_TRACKS 3
+#define NUM_TRACKS 16
 String tracklist[NUM_TRACKS] = {
-  "arrival.mp3",
-  "farewell.mp3",
-  "moving.mp3",
-};
-
-#define NUM_SAMPLES 8
-String samplelist[NUM_SAMPLES] = {
-  "yes.mp3",
-  "no.mp3",
-  "wortel.mp3",
-  "appel.mp3",
-    "huh.mp3",
-  "why.mp3",
-  "grrrr.mp3",
-  "alarm.mp3"
+  "  stop    ",
+  " intro    ",
+  " drome    ",
+  " mazurka  ",
+  " scottish ",
+  "spiegelbos",
+  "la pature ",
+  "moeig bent",
+  "  wals    ",
+  "de poolkap",
+  "cerkelzaag",
+  " optocht  ",
+  "  karlijn ",
+  "zo anders ",
+  "middernach",
+  "  orage   "
 };
 #endif
 
+#ifdef USE_ENCODER
+// encoder knob
+#include <hardware/pio.h>
+#include "quadrature.pio.h"
+
+#define QUADRATURE_A_PIN 8
+#define QUADRATURE_B_PIN 9
+
+PIO pio = pio0;
+unsigned int sm = pio_claim_unused_sm(pio, true);
+#endif
 
 void setup() {
   // for debug
@@ -145,6 +157,13 @@ void setup() {
   // dmx on Serial 1 (GPIO 0 input)
   dmxInput.begin(0, DMX_START_CHANNEL, DMX_NUM_CHANNELS);  
   dmxInput.read_async(buffer);  // no-wait code
+#endif
+
+#ifdef USE_ENCODER
+  pinMode(QUADRATURE_A_PIN, INPUT_PULLUP);
+  pinMode(QUADRATURE_B_PIN, INPUT_PULLUP);
+  unsigned int offset = pio_add_program(pio, &quadratureA_program);
+  quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
 #endif
 
 #ifdef USE_OLED
@@ -174,18 +193,34 @@ while (!maxlipo.begin()) {
 
 
 void loop() {  
+  static int tracknr = 0;
 #ifdef USE_CRSF
   crsfCallback(); // polling, timing is inside the callback
-#endif    
+#endif 
+// ---------------------------------------------------------------------------------------   
 // the 20 Hz main loop, all sampling into channels[] array, with transmission at the end.
 static unsigned long looptime;
   if (millis() > looptime + 49) {
     looptime = millis();
     if(digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN,LOW); else digitalWrite(LED_BUILTIN,HIGH);
+ // so now all the sampling routines, depending on config.h specs.   
 #ifdef USE_NUNCHUCK
     chuck.update(200);
 #endif
-    // get analog channels from mux
+
+#ifdef USE_ENCODER
+    pio_sm_exec_wait_blocking(pio, sm, pio_encode_in(pio_x, 32));
+    int position = pio_sm_get_blocking(pio, sm)/2 % (NUM_TRACKS);
+
+    
+    tracknr = constrain(position,0,NUM_TRACKS-1);
+    // Serial.print(position);
+    // Serial.print(",");
+    // Serial.println(tracknr);
+    channels[ENCODER_CHANNEL] = tracknr*8;
+
+#endif
+    // get analog channels from mux. This is a fixed component on every board
     for(int i = 0; i<16;i++){
       channels[i] = mux.checkMux(i);
       if(invertChannel[i]>0) channels[i] = 255-channels[i];
@@ -207,11 +242,11 @@ static unsigned long looptime;
 #ifdef USE_DMX 
         if(millis() > 100+dmxInput.latest_packet_timestamp()) {
        for(int i = 0; i<8; i++){
-            channels[i+23] = 0;
+            channels[i+24] = 0;
           }
-          channels[23] = 127;  // default values for ALAN
-          channels[24] = 20;
-          channels[25] = 64;
+          channels[24] = 127;  // default values for ALAN
+          channels[25] = 20;
+          channels[26] = 64;
         }
         else {
           for(int i = 0; i<8; i++){
@@ -273,7 +308,7 @@ Serial.println("");
     delay(2000);
     return;
   }
-  processScreen(1,4,maxlipo.cellPercent()); 
+  processScreen(1,4,maxlipo.cellPercent(),tracknr); 
   #else
 processScreen(1,4,0.0); 
 #endif
@@ -341,36 +376,38 @@ void loop1(){
 }
 ////////////////// to be moved to libraries: 
 
-void processScreen(int menu, int position, float battery){
+void processScreen(int menu, int position, float battery, int tracknr){
     display.clearDisplay();
     if (menu == 0) {
+      // nothing yet, only the 'position' slider
       display.fillRect(0, 0, 4, position, SSD1306_WHITE);
       display.setTextSize(1.5);               // Normal 1:1 pixel scale
       display.setTextColor(SSD1306_WHITE);  // Draw white text
       display.setCursor(10, 0);             // Start at top-left corner
     } else if (menu == 1) {
+      // current menu variant with most information: 
+      // bars for information sent
       for (int n = 0; n < NUM_CHANNELS; n++) {
-        display.setCursor(0, 0);  // Start at top-left corner
-        display.setTextSize(1);   // Draw 2X-scale text
-        display.setTextColor(SSD1306_WHITE);
-        if((char)channels[19] != ' ') display.print((char)channels[19]);
-        if(battery>0.0) {display.setCursor(0,33);display.print("battery ");display.print(battery,2);display.print(" %");}
-
         display.fillRect(n * 5, 32 - channels[n] / 8, 4, channels[n] / 8, SSD1306_INVERSE);
       }
-      if(channels[4]>10) {
-          int samplenr = constrain(map(channels[4],0,255,0,NUM_SAMPLES),0,NUM_SAMPLES-1);
-          display.fillRect(0,47,6*samplelist[samplenr].length()+2,10,SSD1306_WHITE);
-          display.setTextColor(SSD1306_BLACK);
-          display.setCursor(1,48);
-          display.print(samplelist[samplenr]);}
-      if(channels[6]>10) {
-          int tracknr = constrain(map(channels[6],0,255,0,NUM_TRACKS),0,NUM_TRACKS-1);
-          display.fillRect(64,47,6*tracklist[tracknr].length()+2,10,SSD1306_WHITE);
-          display.setTextColor(SSD1306_BLACK);
-          display.setCursor(64,48);
-          display.print(tracklist[tracknr]);}
+      // texts: first the keypad char
+      display.setCursor(0, 110);  // Start at top-left corner
+      display.setTextSize(2);   // Draw 2X-scale text
+      display.setTextColor(SSD1306_WHITE);
+      if((char)channels[19] != ' ') display.print((char)channels[19]);
+      // battery level
+      if(battery>0.0) {display.setCursor(0,33);display.print("bat: ");display.print(battery,1);display.print("%");}
+#ifdef USE_ENCODER 
+      // audio track
+      if(tracknr>-1){ 
+        display.setTextSize(2);   // Draw 2X-scale text
+        display.fillRect(0,47,12*tracklist[tracknr].length()+2,20,SSD1306_WHITE);
+        display.setTextColor(SSD1306_BLACK);
+        display.setCursor(0,48);
+        display.print(tracklist[tracknr]);}
+#endif
     } else if (menu == 2) {
+// big menu with cross-hairs used for Klara and the sun / ravi
       display.setCursor(0, 0);  // Start at top-left corner
       display.setTextSize(1);   // Draw 2X-scale text
       display.setTextColor(SSD1306_WHITE);

@@ -3,14 +3,14 @@
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define ANIMAL_LOVE
+//#define ANIMAL_LOVE
 //#define KLARA
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
 //#define AMI (1)
-//#define LUMI (1)
+#define LUMI (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -70,7 +70,7 @@
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
 // for the audio module. Typically we use both (a sample and loop player)
-//#define USE_AUDIO (1)
+#define USE_AUDIO (1)
 
 // RF is either CRSF or (older) APC220 radio
 #define USE_CRSF (1)
