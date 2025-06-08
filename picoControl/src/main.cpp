@@ -210,6 +210,7 @@ Animation animation(defaultAnimation, STEPS);
 DFRobot_DF1201S player1,player2;
 SoftwareSerial player1port(7, 6);
 SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
+void processAudio();
 #endif
 
 // matching function between keypad/button register and call-back check from action list
@@ -307,34 +308,38 @@ audioInit(&player1, &player1port, &player2, &player2port);
 
 void loop() {
   static int mode = IDLE;  // check the status
- static bool startedUp = false; 
+  static bool startedUp = false; // to avoid responding to the inital timeout (zero) 
+// the following are important to make sure the brakes are switched on after a second of inactivity
   static bool brakeState = 1;
   static unsigned long brakeTimer;
 // poll functions outside the 20Hz main loop
 #ifndef USE_CRSF
   RadioPoll();
 #endif
-
+// RS485 as interface. 
 #ifdef USE_RS485
   DynamixelPoll();
 #endif
-
+// there in an encoder on the board, optional
 #ifdef USE_ENCODER
   pio_sm_exec_wait_blocking(pio, sm, pio_encode_in(pio_x, 32));
   int position = pio_sm_get_blocking(pio, sm);
 #endif
-  // the 20 Hz main loop
+// -----------------------------------------------------------------------------
+// the 20 Hz main loop starts here!
+// -----------------------------------------------------------------------------
   static unsigned long looptime;
   if (millis() > looptime + 49) {
     looptime = millis();
-
+// important: when an animation is playing (is checked in the animation class)
     animation.update();
-
-
+// now the RF processing
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
-    if(crsf.crsfData[1] == 24) startedUp = true;
+    if(crsf.crsfData[1] == 24) startedUp = true; // so now we can respond to a timeout
     if (crsf.crsfData[1] == 24 && mode == ACTIVE) {
+      if (digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN, LOW);
+      else digitalWrite(LED_BUILTIN, HIGH);
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
       if(!animation.isPlaying()){
@@ -347,57 +352,17 @@ void loop() {
       crsf.UpdateChannels();
     }
 #endif
-
-// Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
-// TODO (channel 12 as switch point to check the relays)
+// now for specific interpretation of all the channels
 #ifdef LUMI
-    // map the joystick input to the relay switches
+    // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
+    // TODO (channel 12 as switch point to check the relays)
+    // map the joystick input to the relay switches, only when the first switch is on
     if(getRemoteSwitch(0)) joystickToRelays(channels[0],channels[1]);
     // and now for audio control
-     static int isPlaying = 0;
-     static int volume1;
-     int trackToPlay = channels[13]/8;
-     if(trackToPlay == 0 && isPlaying && channels[6]<100){
-       player1.pause();
-       isPlaying = 0;
-     }
-     else if (trackToPlay >0 && trackToPlay < (NUM_TRACKS+1) && trackToPlay !=isPlaying && channels[6]<100){
-       player1.playSpecFile(tracklist[trackToPlay-1]);
-       isPlaying = trackToPlay;
-     }
-     if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
-     volume1 = channels[4];
-     // the separate samples:
-     static int playingSample;
-     static int volume2;
-     if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
-     volume2 = channels[7];
-     if(channels[9]>(127+30) && (playingSample !=2)){
-      playingSample = 2;
-      player2.playSpecFile("/mp3/02-ang.mp3");
-     }
-     else if (channels[9]<(127-30) && (playingSample !=5)){
-      player2.playSpecFile("/mp3/05-noo.mp3");
-      playingSample = 5;
-     }
-     else if ((channels[11]&16) && (playingSample != 3)){
-      player2.playSpecFile("/mp3/03-slp.mp3");
-      playingSample = 3; 
-     }
-     else if ((channels[11]&64) && (playingSample != 6)){
-      player2.playSpecFile("/mp3/06-yes.mp3");
-      playingSample = 6; 
-     }
-     else if ((channels[0]<100) && (playingSample != 4)){
-      player2.playSpecFile("/mp3/04-mov.mp3");
-      playingSample = 4; 
-     }   
-      else if (((channels[12]&16) || (channels[12]&32)) && (playingSample != 1)){
-      player2.playSpecFile("/mp3/01-alm.mp3");
-      playingSample = 1; 
-     }   
+    processAudio(); // as separate void below...      
 #endif
-
+// THe DC motors are controlled with sign-magnitude (PWM functions in the motor class)
+// only when there is no animation playing (no driving while animating)
 #ifdef USE_MOTOR
 if(!animation.isPlaying()){
   #ifdef USE_SPEEDSCALING
@@ -413,8 +378,7 @@ if(!animation.isPlaying()){
   else if (channels[2]==128){
     brakeTimer = BRAKE_TIMEOUT;
     motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
-    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
-  
+    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
   }
   else {
     motorLeft.setSpeed(0,brakeState);
@@ -424,27 +388,29 @@ if(!animation.isPlaying()){
    brakeTimer = BRAKE_TIMEOUT;
    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
-
    #endif
 }
 #endif
-
+// now, the following is for debug but also for recording motion tracks. The typical motion track
+// for animal love or for animaltroniek contains 9 channels. All channels 16 (max, see NUM_CHANNELS)
 #ifdef DEBUG
-// change nr of samples 16 into 9 
+#define PRINT_CHANNELS 9
 Serial.print('{');
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < PRINT_CHANNELS; i++) {
       Serial.print(channels[i]);
-      if (i < 8) Serial.print(',');
+      if (i < (PRINT_CHANNELS-1)) Serial.print(',');
     }
     Serial.println("},");
 #endif
-
+// a special key (typically in last key/switch buffer) is the one for starting and stopping animations
+// needless to say, this key value should NOT! be recorded
 #ifdef ANIMATION_KEY
 if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying())animation.start();
 if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
-
-// RS485 passthrough of Remote data (for eyes, etc)
+// RS485 passthrough of Remote data (for eyes, etc). In order to reduce the data load
+// the BUFFER_PASSTHROUGH can be set to the minimum number of bytes necessary
+// the Dynamixel protocol uses an ID in the message which has to be set here
 #ifdef USE_RS485
     unsigned char headMessage[BUFFER_PASSTHROUGH];
     for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
@@ -452,23 +418,22 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     }
     DynamixelWriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
 #endif
-// now for the important mode / time-out settings
-
+// now for the important mode / time-out settings related to CRSF communication. 
+// only start up when a valid message has been received (see top of the loop)
+// go to safe state after 9 timeout steps (so 0.5 sec)
+// startup when the timeout has been reset (equals 0)
 #ifdef USE_CRSF
     if (crsf.getTimeOut() > 9 && mode == ACTIVE) {
 #else
     if (getTimeOut() > 9 && mode == ACTIVE) {
 #endif
-
       mode = IDLE;
       digitalWrite(LED_BUILTIN, HIGH);
-
       if(!animation.isPlaying() ){
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
     }
-
       #ifdef USE_MOTOR
       motorLeft.setSpeed(0,brakeState);
       motorRight.setSpeed(0,brakeState);
@@ -479,10 +444,9 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #else
     else if (getTimeOut() < 1 && mode == IDLE) {
 #endif
-
       if(startedUp) mode = ACTIVE;
     }
-    ///// this is where the mapping to Relays and sounds takes place
+// this is where the mapping to Relays and sounds takes place
     for (int n = 0; n < NUM_ACTIONS; n++) {
       myActionList[n].update();
     }
@@ -492,13 +456,15 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #else
     nudgeTimeOut();
 #endif
-
+// and the motor bit: timer for the brakeState
 #ifdef USE_MOTOR
   if(brakeTimer > 0) {brakeTimer --;brakeState = 0;}
   if(brakeTimer == 0) brakeState = 1;
 #endif
-
-  }  // the end of the 20Hz loop
+  }  
+// ------------------------------------------------------------------
+// the end of the 20Hz loop
+// ------------------------------------------------------------------
 // finally, different timer: screen update
 #ifdef USE_OLED
   unsigned long screentimer;
@@ -512,13 +478,12 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
   }
 #endif
 }  // end of main
-
+// now on the other core we run the USB joystick bit
 void setup1(){
   #ifdef USB_JOYSTICK
   Joystick.begin(); 
 #endif
 }
-
 void loop1(){
   static unsigned long looptime1;
   if(millis()>looptime1+49){
@@ -528,13 +493,15 @@ void loop1(){
     Joystick.Y(map(channels[3],0,255,0,1023));
     Joystick.Z(map(channels[5],0,255,0,1023));
     Joystick.Zrotate(map(channels[9],0,255,0,1023));
-  
     if(channels[11]&1<<4)Joystick.button(1,true); else Joystick.button(1,false);
     if(channels[11]&1<<6)Joystick.button(4,true); else Joystick.button(4,false);
     #endif
   }
 }
-
+// end of core1 code
+//--------------------------------------------------------------------------------
+// the following function is called when RS485 data is received. This is currently
+// not in use
 #ifdef USE_RS485
 void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data) {
 }
@@ -592,5 +559,61 @@ void processScreen(int mode, int position) {
     }
   }
   display.display();
+}
+#endif
+
+#ifdef USE_AUDIO
+void processAudio(void){
+  static int isPlaying = 0;
+     static int volume1;
+     static int playTimer = 0; 
+     int trackToPlay = channels[13]/8;
+     if(trackToPlay == 0 && isPlaying && channels[6]<100){
+       player1.pause();
+       isPlaying = 0;
+     }
+     else if (trackToPlay >0 && trackToPlay < (NUM_TRACKS+1) && trackToPlay !=isPlaying && channels[6]<100){
+       player1.playSpecFile(tracklist[trackToPlay-1]);
+       isPlaying = trackToPlay;
+     }
+     if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
+     volume1 = channels[4];
+     // the separate samples:
+     static int playingSample;
+     static int volume2;
+     if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
+     volume2 = channels[7];
+     if(channels[9]>(127+30) && (playingSample !=2)){
+      playingSample = 2;
+      player2.playSpecFile("/mp3/02-ang.mp3");
+      playTimer = 20;
+     }
+     else if (channels[9]<(127-30) && (playingSample !=5)){
+      player2.playSpecFile("/mp3/05-noo.mp3");
+      playingSample = 5;
+      playTimer = 20;
+     }
+     else if ((channels[11]&16) && (playingSample != 3)){
+      player2.playSpecFile("/mp3/03-slp.mp3");
+      playingSample = 3; 
+      playTimer = 20;
+     }
+     else if ((channels[11]&64) && (playingSample != 6)){
+      player2.playSpecFile("/mp3/06-yes.mp3");
+      playingSample = 6; 
+      playTimer = 20;
+     }
+     else if ((channels[0]<100) && (playingSample != 4)){
+      player2.playSpecFile("/mp3/04-mov.mp3");
+      playingSample = 4; 
+      playTimer = 20;
+     }   
+      else if (((channels[12]&16) || (channels[12]&32)) && (playingSample != 1)){
+      player2.playSpecFile("/mp3/01-alm.mp3");
+      playingSample = 1; 
+      playTimer = 20;
+     }
+      if(playTimer>0) playTimer --; 
+      if(playTimer ==0) playingSample = 0;  
 }
 #endif
