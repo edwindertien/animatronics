@@ -19,7 +19,6 @@
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
 // button actions, samples
 #include "config.h"  // the specifics for the controlled robot or vehicle
-
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
@@ -32,7 +31,6 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #endif
 //                                           X    Y nb kp vo sw sw sw sw
 //////////////////////////////////////////////////////////////////////////////////////////////
-
 #ifdef USE_OLED
 // OLED display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
@@ -40,11 +38,11 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);  // look at the bottom,
 #endif
-
+// the USB joystick bit used by LUMI 
 #ifdef USB_JOYSTICK
 #include <Joystick.h>
 #endif
-
+//
 #ifdef USE_9685
 // PCA9685 pwm driver for 16 (relay) channels
 #include "Adafruit_PWMServoDriver.h"
@@ -61,13 +59,16 @@ void writeRelay(int relay, bool state) {
 PCA9635 pwm(0x70);
 void writeRelay(int relay, bool state) {
   if (relay >= 0 && relay < 16 && !state) {
-    //pwm.write1(relay, 255);
     pwm.setLedDriverMode(relay, PCA963X_LEDOFF);
   } else if (relay >= 0 && relay < 16 && state) {
     pwm.setLedDriverMode(relay, PCA963X_LEDON);
   }
 }
 #endif
+
+// this is a special bit of code for LUMI to map a 2 axis joystick to 6 relays in order
+// to operate the RF remote which comes with the caravan movers. Have to move this to a separate file eventually
+#ifdef LUMI
 const int driveRelays[]={
   //      
   0b00001000,
@@ -83,6 +84,7 @@ const int driveRelays[]={
   0b00000100,
   0b00001100,
 };
+
 
 bool joystickActive = false;  // global or static variable
 
@@ -117,6 +119,7 @@ void joystickToRelays(int x, int y) {
     }
   }
 }
+#endif
 
 #ifdef LUMI
 #define NUM_TRACKS 15
