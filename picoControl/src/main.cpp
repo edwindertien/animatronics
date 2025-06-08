@@ -506,7 +506,7 @@ void loop1(){
 void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data) {
 }
 #endif
-
+// for the other type of radio (not CRSF)
 #ifndef USE_CRSF
 void ProcessRadioData(int ID, int dataLength, unsigned char *Data) {
   if (digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN, LOW);
@@ -518,11 +518,9 @@ void ProcessRadioData(int ID, int dataLength, unsigned char *Data) {
   }
 }
 #endif
-
-
+// and now for the display function, a number of possible menu visualisations (for now set to menu 1)
 #ifdef USE_OLED
 void processScreen(int mode, int position) {
-  /// and now for the display
   static int menu = 1;
   display.clearDisplay();
   if (menu == 0) {
@@ -561,7 +559,11 @@ void processScreen(int mode, int position) {
   display.display();
 }
 #endif
-
+// and the audio processing for a.o. Lumi. 
+// current issue is that checking player1.isPlaying() waits for milliseconds, so cannot be used to check file status
+// also starting up a file takes more than 50 mS (so you will see a dip in message rate)
+// it would be advisable to run this on the other core, were it not for the fact that that would conflict
+// with the USB joystick functionality. 
 #ifdef USE_AUDIO
 void processAudio(void){
   static int isPlaying = 0;
