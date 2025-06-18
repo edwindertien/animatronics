@@ -1,4 +1,4 @@
-//#define DEBUG (1)
+#define DEBUG (1)
 
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)

@@ -19,13 +19,14 @@
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
 // button actions, samples
 #include "config.h"  // the specifics for the controlled robot or vehicle
+#include <hardware/watchdog.h>
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
 //                                           0    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #ifdef LUMI
-const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 127, 0, 0, 127, 0, 0, 0, 0, 0, 0};
 #else 
 const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #endif
@@ -281,10 +282,7 @@ void setup() {
   pwm.begin();
   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
 #endif
-  // audio players
-#ifdef USE_AUDIO
-audioInit(&player1, &player1port, &player2, &player2port);
-#endif
+
 
 #ifdef USE_MOTOR
   motorLeft.init();
@@ -307,6 +305,7 @@ audioInit(&player1, &player1port, &player2, &player2port);
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
+      watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
 }
 
 void loop() {
@@ -337,6 +336,7 @@ void loop() {
 // important: when an animation is playing (is checked in the animation class)
     animation.update();
 // now the RF processing
+watchdog_update();
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
     if(crsf.crsfData[1] == 24) startedUp = true; // so now we can respond to a timeout
@@ -346,7 +346,7 @@ void loop() {
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
       if(!animation.isPlaying()){
-        for (int n = 0; n < 14; n++) {
+        for (int n = 0; n < 16; n++) {
           channels[n] = constrain(map(crsf.channels[n], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX-CRSF_CHANNEL_OFFSET, 0, 255),0,255);  //write
         }
       }
@@ -362,7 +362,7 @@ void loop() {
     // map the joystick input to the relay switches, only when the first switch is on
     if(getRemoteSwitch(0)) joystickToRelays(channels[0],channels[1]);
     // and now for audio control
-    processAudio(); // as separate void below...      
+    //    processAudio(); // as separate void below...   
 #endif
 // THe DC motors are controlled with sign-magnitude (PWM functions in the motor class)
 // only when there is no animation playing (no driving while animating)
@@ -486,6 +486,10 @@ void setup1(){
   #ifdef USB_JOYSTICK
   Joystick.begin(); 
 #endif
+  // audio players
+#ifdef USE_AUDIO
+audioInit(&player1, &player1port, &player2, &player2port);
+#endif
 }
 void loop1(){
   static unsigned long looptime1;
@@ -498,6 +502,9 @@ void loop1(){
     Joystick.Zrotate(map(channels[9],0,255,0,1023));
     if(channels[11]&1<<4)Joystick.button(1,true); else Joystick.button(1,false);
     if(channels[11]&1<<6)Joystick.button(4,true); else Joystick.button(4,false);
+    #endif
+    #ifdef LUMI
+        processAudio(); // as separate void below...   
     #endif
   }
 }
@@ -571,7 +578,7 @@ void processScreen(int mode, int position) {
 void processAudio(void){
   static int isPlaying = 0;
      static int volume1;
-     static int playTimer = 0; 
+     //static int playTimer = 0; 
      int trackToPlay = channels[13]/8;
      if(trackToPlay == 0 && isPlaying && channels[6]<100){
        player1.pause();
@@ -579,6 +586,7 @@ void processAudio(void){
      }
      else if (trackToPlay >0 && trackToPlay < (NUM_TRACKS+1) && trackToPlay !=isPlaying && channels[6]<100){
        player1.playSpecFile(tracklist[trackToPlay-1]);
+       //player1.playFileNum(trackToPlay);
        isPlaying = trackToPlay;
      }
      if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
@@ -588,37 +596,57 @@ void processAudio(void){
      static int volume2;
      if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
      volume2 = channels[7];
+     
      if(channels[9]>(127+30) && (playingSample !=2)){
       playingSample = 2;
-      player2.playSpecFile("/mp3/02-ang.mp3");
-      playTimer = 20;
+      player2.playFileNum(1);
+      // player2.playSpecFile("/mp3/02-ang.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
      }
      else if (channels[9]<(127-30) && (playingSample !=5)){
-      player2.playSpecFile("/mp3/05-noo.mp3");
+      player2.playFileNum(6);
+      // player2.playSpecFile("/mp3/05-noo.mp3");
+      // Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
       playingSample = 5;
-      playTimer = 20;
+      //playTimer = 20;
      }
      else if ((channels[11]&16) && (playingSample != 3)){
-      player2.playSpecFile("/mp3/03-slp.mp3");
+      //player2.playSpecFile("/mp3/03-slp.mp3");
       playingSample = 3; 
-      playTimer = 20;
+      player2.playFileNum(3);
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
      }
      else if ((channels[11]&64) && (playingSample != 6)){
-      player2.playSpecFile("/mp3/06-yes.mp3");
+      //player2.playSpecFile("/mp3/06-yes.mp3");
       playingSample = 6; 
-      playTimer = 20;
+      player2.playFileNum(7);
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
      }
      else if ((channels[0]<100) && (playingSample != 4)){
-      player2.playSpecFile("/mp3/04-mov.mp3");
+      // player2.playSpecFile("/mp3/04-mov.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      player2.playFileNum(4);
       playingSample = 4; 
-      playTimer = 20;
+      //playTimer = 20;
      }   
       else if (((channels[12]&16) || (channels[12]&32)) && (playingSample != 1)){
-      player2.playSpecFile("/mp3/01-alm.mp3");
+        player2.playFileNum(8);
+      // player2.playSpecFile("/mp3/01-alm.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
       playingSample = 1; 
-      playTimer = 20;
+      //playTimer = 20;
      }
-      if(playTimer>0) playTimer --; 
-      if(playTimer ==0) playingSample = 0;  
+     //else playingSample = 0;
+      //if(playTimer>0) playTimer --; 
+      //if(playTimer ==0) playingSample = 0;  
 }
 #endif
