@@ -6,7 +6,11 @@
 #define ANIMAL_LOVE (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 // array with all relays, grouped on two connectors of 8 pins each
-int relays[] =    {A8, A9, A10, A11, A12, A13, A14, A15, 40, 41,  42,  43,  44,  45,  46,  47};
+#ifdef ANIMAL_LOVE
+int relays[] =    { 40, 41,  42,  43,  44,  45,  46,  47,A8, A9, A10, A11, A12, A13, A14, A15};
+#else
+int relays[] =    {A8, A9, A10, A11, A12, A13, A14, A15,40, 41,  42,  43,  44,  45,  46,  47};
+#endif
 int servoPins[] = {24, 25, 26, 27, 28, 29};
 //////////////////////////////////////////////////////////////////////////////////////////////
 ////// hardware specifics for animaltroniek wezens specifiek
@@ -129,7 +133,7 @@ Action(5, 0, DIRECT),  //water
 Action(6, 1, DIRECT),  //blaas
 Action(8, 2, DIRECT),  //L+R
 Action(10, 3, DIRECT), // BEK
-Action('5', 4, DIRECT),
+Action(12, 4, DIRECT), // knik
 Action('6', 5, DIRECT),
 Action('7', 6, DIRECT),
 Action('8', 7, DIRECT),
@@ -137,7 +141,7 @@ Action('8', 7, DIRECT),
 
 int servoMins[] =    { 40, 40, 40, 40, 40, 40};
 int servoCenters[] = { 90, 90, 90, 90, 90, 90}; // voor zwaardvis
-int servoMax[] =     {140, 140, 140, 140, 140, 140};
+int servoMax[] =     {140, 140, 140, 140, 130, 130};
 
 #endif
 

@@ -552,7 +552,7 @@ void processScreen(int mode, int position) {
     if (animation.isPlaying()) display.print (F("anim run"));
     else display.print (F("anim stop"));
     // print bars
-    for (int n = 0; n < NUM_CHANNELS; n++) {
+    for (int n = 0; n < NUM_CHANNELS-2; n++) {
       display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
     }
     display.fillRect(124, 0, 4, position, SSD1306_WHITE);

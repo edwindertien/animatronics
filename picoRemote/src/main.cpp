@@ -308,7 +308,11 @@ Serial.println("");
     delay(2000);
     return;
   }
+  #ifdef LUMI
   processScreen(1,4,maxlipo.cellPercent(),tracknr); 
+  #else
+  processScreen(3,4,maxlipo.cellPercent(),tracknr); 
+  #endif
   #else
 processScreen(1,4,0.0); 
 #endif
@@ -439,6 +443,18 @@ void processScreen(int menu, int position, float battery, int tracknr){
 
     display.fillRect(32, 32 - channels[3] / 8, 4, channels[3] / 8, SSD1306_INVERSE);
     display.fillRect(90, 32 - channels[5] / 8, 4, channels[5] / 8, SSD1306_INVERSE);
+    }
+    else if (menu == 3){
+           for (int n = 0; n < NUM_CHANNELS; n++) {
+        display.fillRect(n * 3, 32 - channels[n] / 8, 2, channels[n] / 8, SSD1306_INVERSE);
+      }
+      // texts: first the keypad char
+      display.setTextSize(2);   // Draw 2X-scale text
+      display.setTextColor(SSD1306_WHITE);
+
+      if((char)channels[19] != ' ') {display.setCursor(64,0);display.print((char)channels[19]);}
+      // battery level
+      if(battery>0.0) {display.setCursor(90,0);display.print(battery,0);}
     }
     display.display();
 }

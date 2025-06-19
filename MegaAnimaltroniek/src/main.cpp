@@ -110,6 +110,9 @@ void loop() {
       for (int i = 0; i < 16; i++) {
         digitalWrite(relays[i], HIGH); // all 16 outputs off
       }
+        for (int n = 0; n < 6; n++) {
+    eyeServo[n].write(servoCenters[n]);
+  }
     }
     //// now, here the magic should happen for switch-type actions
    for (int n = 0; n < NUM_ACTIONS; n++) {
@@ -134,7 +137,7 @@ void loop() {
   }
   #endif
   ///// and, the eye-servos feeding on the nunchuck (joystick) information:
-
+  if(validMessage>0){
   if (message.buttons == 0) {
     #ifdef ANIMAL_LOVE
     eyeServo[0].write(map(message.xSetpoint, 255, 0, servoMins[0], servoMax[0]));
@@ -150,15 +153,17 @@ void loop() {
   }
   //--------- then for the eyelids when the 2nd button is pressed --------------
   if (message.buttons == 64) {
-    int leftLidvalue = (message.ySetpoint - 127) + min(127 - message.xSetpoint, 0);
-    int rightLidvalue = (message.ySetpoint - 127) + min(message.xSetpoint - 127, 0);
+    int leftLidvalue = constrain((127 + (message.ySetpoint - 127) + (message.xSetpoint - 127)),0,255);
+    int rightLidvalue = constrain((127 + (message.ySetpoint - 127) - (message.xSetpoint - 127)),0,255);
     #ifdef ANIMAL_LOVE
-    eyeServo[4].write(map(leftLidvalue, 255, 0, servoMax[4], servoMins[4])); // inverted servo position!! 
+    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMax[4], servoMins[4])); // inverted servo position!! 
     #else
     eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4]));
     #endif
-    if (!blinking) eyeServo[5].write(map(rightLidvalue, 255, 0, servoMins[5], servoMax[5]));
-    //Serial.println(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
+    if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
+   // Serial.print(leftLidvalue);
+   // Serial.print(',');
+   // Serial.println(rightLidvalue);
   }
   //-----------  DURING DRIVING (MOTOR ON  -------------
   if (message.buttons == 128 || message.buttons == 192) {
@@ -172,6 +177,7 @@ void loop() {
     eyeServo[2].write(map(message.ySetpoint, 255, 0, servoMins[2], servoMax[2]));
     eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
   }
+}
 #ifdef DEBUG
   Serial.print('{');
   Serial.print(message.xSetpoint);
