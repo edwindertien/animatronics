@@ -1,16 +1,18 @@
+#pragma once
 #define DEBUG (1)
-
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
+// the animation tracks are added in the file animation.cpp, the number of steps in the
+// header file animation.h (so check those before compiling.)
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define ANIMAL_LOVE
+//#define ANIMAL_LOVE
 //#define KLARA
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
 //#define AMI (1)
-//#define LUMI (1)
+#define LUMI (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -81,6 +83,37 @@
 #define SWITCH_CHANNEL 12 //second switch channel will be +1, next up + 2 and + 3
 
 //#define ANIMATION_KEY (32) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+
+
+#define NUM_TRACKS 15
+const String tracklist[NUM_TRACKS] = 
+{
+  "/mp3/01-int.mp3",
+  "/mp3/02-dro.mp3",
+  "/mp3/03-maz.mp3",
+  "/mp3/04-sco.mp3",
+  "/mp3/05-spi.mp3",
+  "/mp3/06-pat.mp3",
+  "/mp3/07-moe.mp3",
+  "/mp3/08-wal.mp3",
+  "/mp3/09-poo.mp3",
+  "/mp3/10-cer.mp3",
+  "/mp3/11-opt.mp3",
+  "/mp3/12-kar.mp3",
+  "/mp3/13-and.mp3",
+  "/mp3/14-mid.mp3",
+  "/mp3/15-ora.mp3",
+};
+#define NUM_SAMPLES 6
+const String samplelist[NUM_SAMPLES] = 
+{
+  "/mp3/01-alm.mp3",
+  "/mp3/02-ang.mp3",
+  "/mp3/03-slp.mp3",
+  "/mp3/04-mov.mp3",
+  "/mp3/05-noo.mp3",
+  "/mp3/06-yes.mp3"
+};
 
 #endif
 

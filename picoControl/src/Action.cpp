@@ -1,23 +1,23 @@
 #include "Action.h"
-
+#include "PicoRelay.h"
 extern bool getRemoteSwitch(char button);  // this wil be provided somewhere
-extern void writeRelay(int relay,bool state);
-
+//extern void writeRelay(int relay,bool state);
+extern PicoRelay relay;
 
 // now with function overloading. 
 
-Action::Action(char button, int relay, int mode) {
+Action::Action(char button, int relaynr, int mode) {
   this->button = button;
-  this->relay = relay;
+  this->relaynr = relaynr;
   this->mode = mode;
   state = 0;
   previousState = 0;
   init();
 }
 
-Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue) {
+Action::Action(char button, int relaynr, int mode, Motor* motor, int motorvalue) {
   this->button = button;
-  this->relay = relay;
+  this->relaynr = relaynr;
   this->mode = mode;
   this->motor = motor;
   this->motorvalue = motorvalue;
@@ -26,9 +26,9 @@ Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue) {
   init();
 }
 
-Action::Action(char button, int relay, int mode, Motor* motor, int motorvalue, int tracknr,  DFRobot_DF1201S* player) {
+Action::Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int tracknr,  DFRobot_DF1201S* player) {
   this->button = button;
-  this->relay = relay;
+  this->relaynr = relaynr;
   this->mode = mode;
   this->motor = motor;
   this->motorvalue = motorvalue;
@@ -70,8 +70,8 @@ void Action::update() {
 }
 void Action::trigger() {
         // Trigger relay action
-    if (relay >= 0) {
-      writeRelay(relay, HIGH);  // Trigger relay
+    if (relaynr >= 0) {
+      relay.writeRelay(relaynr, HIGH);  // Trigger relay
   }
 
   // Trigger motor speed if motor is initialized
@@ -98,7 +98,7 @@ void Action::trigger() {
 
 void Action::stop() {
       // Reset relay
-      writeRelay(relay, LOW);
+      relay.writeRelay(relaynr, LOW);
 
       // Pause motor if it's initialized
       if (motor != nullptr) {

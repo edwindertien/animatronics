@@ -18,17 +18,17 @@ class Action {
   int tracknr = 0;
   DFRobot_DF1201S* player = nullptr;
     char button;
-    int relay;
+    int relaynr;
     int mode;
     int state;
     int previousState;
     void init();
 
   public:
-  Action(char button, int relay, int mode);
-  Action(char button, int relay, int mode, Motor* motor, int motorvalue);
+  Action(char button, int relaynr, int mode);
+  Action(char button, int relaynr, int mode, Motor* motor, int motorvalue);
   //Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
-  Action(char button, int relay, int mode, Motor* motor, int motorvalue, int tracknr, DFRobot_DF1201S* player);
+  Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int tracknr, DFRobot_DF1201S* player);
        
     void update();
     void trigger();

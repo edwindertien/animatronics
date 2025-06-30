@@ -20,6 +20,8 @@
 // button actions, samples
 #include "config.h"  // the specifics for the controlled robot or vehicle
 #include <hardware/watchdog.h>
+#include <PicoRelay.h>
+PicoRelay relay;
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
@@ -39,122 +41,90 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);  // look at the bottom,
 #endif
+
 // the USB joystick bit used by LUMI 
 #ifdef USB_JOYSTICK
 #include <Joystick.h>
 #endif
 //
-#ifdef USE_9685
-// PCA9685 pwm driver for 16 (relay) channels
-#include "Adafruit_PWMServoDriver.h"
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-void writeRelay(int relay, bool state) {
-  if (relay >= 0 && relay < 16 && !state) {
-    pwm.setPWM(relay, 0, 4095);
-  } else if (relay >= 0 && relay < 16 && state) {
-    pwm.setPWM(relay, 0, 0);
-  }
-}
-#else 
-#include "PCA9635.h"
-PCA9635 pwm(0x70);
-void writeRelay(int relay, bool state) {
-  if (relay >= 0 && relay < 16 && !state) {
-    pwm.setLedDriverMode(relay, PCA963X_LEDOFF);
-  } else if (relay >= 0 && relay < 16 && state) {
-    pwm.setLedDriverMode(relay, PCA963X_LEDON);
-  }
-}
-#endif
+// and now for the relay board
+// #ifdef USE_9685
+// // PCA9685 pwm driver for 16 (relay) channels
+// #include "Adafruit_PWMServoDriver.h"
+// Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+// void writeRelay(int relay, bool state) {
+//   if (relay >= 0 && relay < 16 && !state) {
+//     pwm.setPWM(relay, 0, 4095);
+//   } else if (relay >= 0 && relay < 16 && state) {
+//     pwm.setPWM(relay, 0, 0);
+//   }
+// }
+// #else 
+// #include "PCA9635.h"
+// PCA9635 pwm(0x70);
+// void writeRelay(int relay, bool state) {
+//   if (relay >= 0 && relay < 16 && !state) {
+//     pwm.setLedDriverMode(relay, PCA963X_LEDOFF);
+//   } else if (relay >= 0 && relay < 16 && state) {
+//     pwm.setLedDriverMode(relay, PCA963X_LEDON);
+//   }
+// }
+// #endif
 
-// this is a special bit of code for LUMI to map a 2 axis joystick to 6 relays in order
-// to operate the RF remote which comes with the caravan movers. Have to move this to a separate file eventually
-#ifdef LUMI
-const int driveRelays[]={
-  //      
-  0b00001000,
-  0b00011000,
-  0b00010000,
-  0b00110000,
-  0b00100000,
-  0b00100001,
-  0b00000001,
-  0b00000011,
-  0b00000010,
-  0b00000110,
-  0b00000100,
-  0b00001100,
-};
+// // this is a special bit of code for LUMI to map a 2 axis joystick to 6 relays in order
+// // to operate the RF remote which comes with the caravan movers. Have to move this to a separate file eventually
+// #ifdef LUMI
+// const int driveRelays[]={
+//   //      
+//   0b00001000,
+//   0b00011000,
+//   0b00010000,
+//   0b00110000,
+//   0b00100000,
+//   0b00100001,
+//   0b00000001,
+//   0b00000011,
+//   0b00000010,
+//   0b00000110,
+//   0b00000100,
+//   0b00001100,
+// };
 
 
-bool joystickActive = false;  // global or static variable
+// bool joystickActive = false;  // global or static variable
 
-void joystickToRelays(int x, int y) {
-  const int center = 127;
-  const int enterThreshold = 60;
-  const int exitThreshold = 40;
+// void joystickToRelays(int x, int y) {
+//   const int center = 127;
+//   const int enterThreshold = 60;
+//   const int exitThreshold = 40;
 
-  int dx = x - center;
-  int dy = y - center;
-  int distance = sqrt(dx * dx + dy * dy);
+//   int dx = x - center;
+//   int dy = y - center;
+//   int distance = sqrt(dx * dx + dy * dy);
 
-  // State transition with hysteresis
-  if (!joystickActive && distance > enterThreshold) {
-    joystickActive = true;
-  } else if (joystickActive && distance < exitThreshold) {
-    joystickActive = false;
-  }
+//   // State transition with hysteresis
+//   if (!joystickActive && distance > enterThreshold) {
+//     joystickActive = true;
+//   } else if (joystickActive && distance < exitThreshold) {
+//     joystickActive = false;
+//   }
 
-  if (joystickActive) {
-    int relayNumber = constrain((180 + 360.0 * (atan2(dx, dy) / 6.28)) / 30, 0, 11);
-    for (int i = 0; i < 6; i++) {
-      if (driveRelays[relayNumber] & (1 << i)) {
-        writeRelay(i, HIGH);
-      } else {
-        writeRelay(i, LOW);
-      }
-    }
-  } else {
-    for (int i = 0; i < 6; i++) {
-      writeRelay(i, LOW);
-    }
-  }
-}
-#endif
-
-#ifdef LUMI
-#define NUM_TRACKS 15
-String tracklist[NUM_TRACKS] = 
-{
-  "/mp3/01-int.mp3",
-  "/mp3/02-dro.mp3",
-  "/mp3/03-maz.mp3",
-  "/mp3/04-sco.mp3",
-  "/mp3/05-spi.mp3",
-  "/mp3/06-pat.mp3",
-  "/mp3/07-moe.mp3",
-  "/mp3/08-wal.mp3",
-  "/mp3/09-poo.mp3",
-  "/mp3/10-cer.mp3",
-  "/mp3/11-opt.mp3",
-  "/mp3/12-kar.mp3",
-  "/mp3/13-and.mp3",
-  "/mp3/14-mid.mp3",
-  "/mp3/15-ora.mp3",
-};
-#define NUM_SAMPLES 6
-String samplelist[NUM_SAMPLES] = 
-{
-  "/mp3/01-alm.mp3",
-  "/mp3/02-ang.mp3",
-  "/mp3/03-slp.mp3",
-  "/mp3/04-mov.mp3",
-  "/mp3/05-noo.mp3",
-  "/mp3/06-yes.mp3"
-};
-
-#endif
-
+//   if (joystickActive) {
+//     int relayNumber = constrain((180 + 360.0 * (atan2(dx, dy) / 6.28)) / 30, 0, 11);
+//     for (int i = 0; i < 6; i++) {
+//       if (driveRelays[relayNumber] & (1 << i)) {
+//         writeRelay(i, HIGH);
+//       } else {
+//         writeRelay(i, LOW);
+//       }
+//     }
+//   } else {
+//     for (int i = 0; i < 6; i++) {
+//       writeRelay(i, LOW);
+//     }
+//   }
+// }
+// #endif
 
 #ifdef USE_ENCODER
 // encoder knob
@@ -272,16 +242,18 @@ void setup() {
   quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
 #endif
 
-#ifdef USE_9685
-  // relay / servo
-  pwm.begin();
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(16000);
-  for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
-  #else
-  pwm.begin();
-  for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
-#endif
+// #ifdef USE_9685
+//   // relay / servo
+//   pwm.begin();
+//   pwm.setOscillatorFrequency(27000000);
+//   pwm.setPWMFreq(16000);
+//   for (int n = 0; n < 16; n++) { relay.writeRelay(n, LOW); }
+//   #else
+//   pwm.begin();
+//   for (int n = 0; n < 16; n++) { relay.writeRelay(n, LOW); }
+// #endif
+
+relay.begin();
 
 
 #ifdef USE_MOTOR
@@ -360,7 +332,7 @@ watchdog_update();
     // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
     // TODO (channel 12 as switch point to check the relays)
     // map the joystick input to the relay switches, only when the first switch is on
-    if(getRemoteSwitch(0)) joystickToRelays(channels[0],channels[1]);
+    if(getRemoteSwitch(0)) relay.joystickToRelays(channels[0],channels[1]);
     // and now for audio control
     //    processAudio(); // as separate void below...   
 #endif
