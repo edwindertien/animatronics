@@ -1,10 +1,14 @@
 #include "Animation.h"
-
+#include <config.h>
+#ifdef ANIMAL_LOVE
 #include "Track-animalove.h"
-//#include "Track-kreeft.h"
-//#include "Track-vis.h"
-//#include "Track-schildpad.h"
-
+#endif
+#ifdef ANIMALTRONIEK_KREEFT
+#include "Track-kreeft.h"
+#endif
+#ifdef ANIMALTRONIEK_VIS
+#include "Track-vis.h"
+#endif
 
 extern int channels[];  // the global channel array (aargh)
 

@@ -19,7 +19,7 @@
 #ifdef ANIMAL_LOVE
 #define BOARD_V2 (1)
 //#define USE_9685 (1)
-#define USE_9635 (1)
+//#define USE_9635 (1)
 #define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -47,14 +47,14 @@
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (30) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
-
+#define STEPS 967 
 #endif
 
 
 #ifdef LUMI
 #define BOARD_V2 (1)
 //#define USE_9685 (1)
-#define USE_9635 (1)
+//#define USE_9635 (1)
 //#define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -83,7 +83,7 @@
 #define SWITCH_CHANNEL 12 //second switch channel will be +1, next up + 2 and + 3
 
 //#define ANIMATION_KEY (32) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
-
+//#define STEPS 1
 
 #define NUM_TRACKS 15
 const String tracklist[NUM_TRACKS] = 
@@ -154,7 +154,6 @@ const String samplelist[NUM_SAMPLES] =
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
-
 #endif
 
 ////// hardware specifics for animaltroniek
@@ -164,6 +163,7 @@ const String samplelist[NUM_SAMPLES] =
 // two inputs for direction and 1 input for velocity.
 // #define BOARD_V2 (1)
 #define BOARD_V1 (1)
+//#define USE_9685
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -180,8 +180,6 @@ const String samplelist[NUM_SAMPLES] =
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
 
-
-
 // Actions can only be coupled with audio when the players are enabled
 // note the board will only start when audio players are available
 //#define USE_AUDIO (1)
@@ -194,10 +192,8 @@ const String samplelist[NUM_SAMPLES] =
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+#define STEPS 985 
 #endif
-
-
-
 
 
 #ifdef ANIMALTRONIEK_VIS
@@ -206,6 +202,7 @@ const String samplelist[NUM_SAMPLES] =
 // two inputs for direction and 1 input for velocity.
 // #define BOARD_V2 (1)
 #define BOARD_V1 (1)
+//#define USE_9685
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -231,8 +228,5 @@ const String samplelist[NUM_SAMPLES] =
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (24)
-
-
+#define STEPS 1005  //
 #endif
-
-

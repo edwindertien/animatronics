@@ -2,8 +2,9 @@
 #define __ANIMATION_H__
 #include <Arduino.h>
 #include <avr/pgmspace.h>
+#include <config.h>
+ 
 
-#define STEPS 967
 #define PAUSE 800 // Pause after each complete loop (in loops)
 
 typedef struct {
@@ -40,6 +41,8 @@ class Animation {
     bool playing;
 };
 
+#ifdef ANIMATION_KEY
 extern const animationStep defaultAnimation[STEPS] PROGMEM;
+#endif
 
 #endif

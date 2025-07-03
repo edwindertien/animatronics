@@ -20,8 +20,10 @@
 // button actions, samples
 #include "config.h"  // the specifics for the controlled robot or vehicle
 #include <hardware/watchdog.h>
+
 #include <PicoRelay.h>
 PicoRelay relay;
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 #define NUM_CHANNELS 16
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
@@ -46,8 +48,8 @@ void processScreen(int mode, int position);  // look at the bottom,
 #ifdef USB_JOYSTICK
 #include <Joystick.h>
 #endif
-//
-// and now for the relay board
+
+//and now for the relay board
 // #ifdef USE_9685
 // // PCA9685 pwm driver for 16 (relay) channels
 // #include "Adafruit_PWMServoDriver.h"
@@ -177,8 +179,11 @@ Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontrol
 
 
 #include "Action.h"  // needs audio and the available motor's to link actions to.
+
+#ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, STEPS);
+#endif
 
 #ifdef USE_AUDIO
 DFRobot_DF1201S player1,player2;
@@ -247,10 +252,10 @@ void setup() {
 //   pwm.begin();
 //   pwm.setOscillatorFrequency(27000000);
 //   pwm.setPWMFreq(16000);
-//   for (int n = 0; n < 16; n++) { relay.writeRelay(n, LOW); }
+//   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
 //   #else
 //   pwm.begin();
-//   for (int n = 0; n < 16; n++) { relay.writeRelay(n, LOW); }
+//   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
 // #endif
 
 relay.begin();
@@ -305,10 +310,7 @@ void loop() {
   static unsigned long looptime;
   if (millis() > looptime + 49) {
     looptime = millis();
-// important: when an animation is playing (is checked in the animation class)
-    animation.update();
-// now the RF processing
-watchdog_update();
+
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
     if(crsf.crsfData[1] == 24) startedUp = true; // so now we can respond to a timeout
@@ -317,7 +319,11 @@ watchdog_update();
       else digitalWrite(LED_BUILTIN, HIGH);
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
+#ifdef ANIMATION_KEY     
       if(!animation.isPlaying()){
+#else
+      if(true){
+#endif
         for (int n = 0; n < 16; n++) {
           channels[n] = constrain(map(crsf.channels[n], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX-CRSF_CHANNEL_OFFSET, 0, 255),0,255);  //write
         }
@@ -380,7 +386,11 @@ Serial.print('{');
 // a special key (typically in last key/switch buffer) is the one for starting and stopping animations
 // needless to say, this key value should NOT! be recorded
 #ifdef ANIMATION_KEY
-if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying())animation.start();
+if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()){
+  animation.start();      
+  motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+}
 if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
 // RS485 passthrough of Remote data (for eyes, etc). In order to reduce the data load
@@ -404,7 +414,11 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
       mode = IDLE;
       digitalWrite(LED_BUILTIN, HIGH);
+#ifdef ANIMATION_KEY
       if(!animation.isPlaying() ){
+#else
+        if(true){
+#endif
       for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
       }
@@ -436,6 +450,12 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
   if(brakeTimer > 0) {brakeTimer --;brakeState = 0;}
   if(brakeTimer == 0) brakeState = 1;
 #endif
+// important: when an animation is playing (is checked in the animation class)
+#ifdef ANIMATION_KEY
+  animation.update();
+#endif
+// now the RF processing
+  watchdog_update();
   }  
 // ------------------------------------------------------------------
 // the end of the 20Hz loop
@@ -453,7 +473,8 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
   }
 #endif
 }  // end of main
-// now on the other core we run the USB joystick bit
+// 
+// now on the other core we run the USB joystick bit AND the audio controllers
 void setup1(){
   #ifdef USB_JOYSTICK
   Joystick.begin(); 
@@ -521,8 +542,12 @@ void processScreen(int mode, int position) {
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
     #endif
     display.setCursor(70, 0);
-    if (animation.isPlaying()) display.print (F("anim run"));
+#ifdef ANIMATION_KEY
+    if (animation.isPlaying()){ 
+      display.print (F("anim run"));
+    }
     else display.print (F("anim stop"));
+#endif
     // print bars
     for (int n = 0; n < NUM_CHANNELS-2; n++) {
       display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);

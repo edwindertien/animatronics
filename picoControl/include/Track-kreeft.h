@@ -1,7 +1,7 @@
 #ifndef __TRACKKREEFT_H__
 #define __TRACKKREEFT_H__
 
-//#define STEPS 2
+//#define STEPS 
 extern const animationStep defaultAnimation[STEPS] PROGMEM ={
 {127,127,0,0,0,0,0,0,0},
 {115,156,0,0,0,0,0,0,0},
