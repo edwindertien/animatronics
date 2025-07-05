@@ -5,9 +5,9 @@
 #include <config.h>
 
 #ifdef BOARD_V2
-#define  USE_9635 (1)
+#define  USE_9635 (1)   // the 8 bit switcher
 #elif defined(BOARD_V1)
-#define USE_9685 (1)
+#define USE_9685 (1)    // the 11 bit LED dimmer which can do servo PWM
 #endif
 
 #if defined(USE_9685)
