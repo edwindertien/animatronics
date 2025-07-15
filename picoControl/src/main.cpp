@@ -15,26 +15,19 @@
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
 // edit the config.h to set the specifics for a used robot or vehicle
-#include <Arduino.h>
+#include <Arduino.h> // the EarlPhilHower Arduino port of Pico SDK
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
-// button actions, samples
-#include "config.h"  // the specifics for the controlled robot or vehicle
+#include <config.h>  // the specifics for the controlled robot or vehicle
 #include <hardware/watchdog.h>
-
+// hardware on every board: the relay sockets
 #include <PicoRelay.h>
 PicoRelay relay;
-
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define NUM_CHANNELS 16
+// the one and only global channel array containing the received values from RF
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
-//                                           0    1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-#ifdef LUMI
-const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 127, 0, 0, 127, 0, 0, 0, 0, 0, 0};
-#else 
-const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-#endif
-//                                           X    Y nb kp vo sw sw sw sw
+//                               0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+int channels[NUM_CHANNELS] =   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// for most of the exoot:        X  Y nb kp vo sw sw sw sw
 //////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef USE_OLED
 // OLED display
@@ -43,15 +36,26 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);  // look at the bottom,
 #endif
-
+/////////// waveshare motor ///////////////
+#ifdef USE_DDSM
+#include <ddsm_ctrl.h>
+#include <SoftwareSerial.h>
+DDSM_CTRL dc;
+SoftwareSerial DDSMport(18,19);
+#endif
+////////// waveshare ST3215 servo /////////
+#ifdef USE_STS
+#include <SCServo.h>
+#include <SoftwareSerial.h>
+SMS_STS st;
+SoftwareSerial STSport(18,19);
+#endif
 // the USB joystick bit used by LUMI 
 #ifdef USB_JOYSTICK
 #include <Joystick.h>
 #endif
-
-
+//////// incremental encoder, might be populated on board
 #ifdef USE_ENCODER
-// encoder knob
 #include <hardware/pio.h>
 #include "quadrature.pio.h"
 #ifdef BOARD_V1
@@ -66,18 +70,17 @@ void processScreen(int mode, int position);  // look at the bottom,
 PIO pio = pio0;
 unsigned int sm = pio_claim_unused_sm(pio, true);
 #endif
-
+//// RS485, as passthrough of radio data, or as separate port
 #ifdef USE_RS485
 // for communication with motor driver and other externals
 #include "DynamixelReader.h"
 #define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
-
 // running modes
 #define IDLE 0
 #define ACTIVE 1
 #define PLAYBACK 2
-
+/////// Electromen motor drivers (or other sigh-magnitude PWM drivers)
 #ifdef USE_MOTOR
 #define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
 #include <Motor.h>
@@ -98,27 +101,25 @@ Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontrol
 #endif
 #endif
 #endif
-
-
+//// Action libray to select button press actions (sound + relay trigger)
 #include "Action.h"  // needs audio and the available motor's to link actions to.
-
+/// key to play standalone animation. Keeps playing when Remote is turned off
 #ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, STEPS);
 #endif
-
+// for triggers or tracks on DFRobot players. Note: they have to be installed
+// otherwise the initialisation will hang
 #ifdef USE_AUDIO
 DFRobot_DF1201S player1,player2;
 SoftwareSerial player1port(7, 6);
 SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
 void processAudio();
 #endif
-
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
 // and 32 switch positions (in 4 bytes)
 bool getRemoteSwitch(char button) {
-
   if((button >='0' && button<='9') || button=='*' || button=='#'){ // check keypad buttons
     #ifdef KEYPAD_CHANNEL
     if(channels[KEYPAD_CHANNEL] == button) return true;
@@ -140,21 +141,39 @@ bool getRemoteSwitch(char button) {
   #endif
   return false;
 }
-
-// radio communication materials
+// radio communication: for now either the CRSF (ELRS) or the (old) APC220 434 MHz system
 #ifdef USE_CRSF
 #include "CRSF.h"
 CRSF crsf;
 #else
 #include "Radio.h"
 #endif
-
+//////////////////////////////////////////////////////////////////////////////////////////
 // and here the program starts
+//////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
   Serial.begin(115200);
   pinMode(LED_BUILTIN, OUTPUT);
-
-
+////////////////////////////////
+#ifdef USE_DDSM
+	DDSMport.begin(115200);
+	dc.pSerial = &DDSMport;
+	dc.set_ddsm_type(210); 	// config the type of ddsm. 
+	dc.clear_ddsm_buffer(); // clear ddsm serial buffer.
+	// change the ID of DDSM210.
+	// args: ddsm_change_id(GOAL_ID)
+	//dc.ddsm_change_id(4); // change the DDSM210 ID to 4
+  dc.ddsm_change_mode(4, 2);  // 0 pwm, 2 speed, 3 position
+  #endif
+#ifdef USE_STS
+  STSport.begin(1000000);
+  st.pSerial = &STSport;
+  // int ID_ChangeFrom = 1;
+  // int ID_Changeto   = 16;
+  // st.unLockEprom(ID_ChangeFrom);//unlock EPROM-SAFE
+  // st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
+  // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
+#endif
 #ifdef USE_OLED
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
@@ -168,21 +187,8 @@ void setup() {
   unsigned int offset = pio_add_program(pio, &quadratureA_program);
   quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
 #endif
-
-// #ifdef USE_9685
-//   // relay / servo
-//   pwm.begin();
-//   pwm.setOscillatorFrequency(27000000);
-//   pwm.setPWMFreq(16000);
-//   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
-//   #else
-//   pwm.begin();
-//   for (int n = 0; n < 16; n++) { writeRelay(n, LOW); }
-// #endif
-
 relay.begin();
-
-
+///////////////////
 #ifdef USE_MOTOR
   motorLeft.init();
   motorRight.init();
@@ -192,7 +198,6 @@ relay.begin();
 #ifdef USE_RS485
   DynamixelInit(RS_485_BAUD, RS485_SR);
 #endif
-
   // radio on Serial2: CRSF or APC RF:
 #ifdef USE_CRSF
   crsf.begin();
@@ -201,10 +206,10 @@ relay.begin();
   RFsetSettings(2);
 #endif
 // and now start up the channel buffer!
-      for (int n = 0; n < NUM_CHANNELS; n++) {
+  for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
-      }
-      watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
+  }
+  watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
 }
 
 void loop() {
@@ -256,6 +261,28 @@ void loop() {
     }
 #endif
 // now for specific interpretation of all the channels
+#ifdef USE_DDSM
+  dc.ddsm_ctrl(4, map(channels[1],0,255,-2100,2100), 0);
+#endif
+
+#ifdef USE_STS
+// top yaw
+st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// top pitch
+st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// elbow pitch
+st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// double joint pitch, joint 12 leads, joint 13 has been tuned to follow
+int centerpos = 1875;
+int value = map(channels[2],0,255,-625,625); 
+int offset = 300;
+st.WritePosEx(13, centerpos - value + offset, 1000, 20);
+st.WritePosEx(12, centerpos + value, 1000, 20);
+// bottom yaw
+st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
+#endif
+
+
 #ifdef LUMI
     // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
     // TODO (channel 12 as switch point to check the relays)
@@ -358,9 +385,11 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
       if(startedUp) mode = ACTIVE;
     }
 // this is where the mapping to Relays and sounds takes place
+#ifdef NUM_ACTIONS
     for (int n = 0; n < NUM_ACTIONS; n++) {
       myActionList[n].update();
     }
+#endif
 /////////// kick the time out checker! //////////
 #ifdef USE_CRSF
     crsf.nudgeTimeOut();
@@ -480,10 +509,12 @@ void processScreen(int mode, int position) {
     display.setTextSize(1);   // Draw 2X-scale text
     display.setTextColor(SSD1306_WHITE);
     display.println(F("1234567890 actions"));
+    #ifdef NUM_ACTIONS
     for (int i = 0; i < NUM_ACTIONS; i++) {
       if (myActionList[i].getState() == 1) display.fillRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
       else display.drawRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
     }
+    #endif
   }
   display.display();
 }

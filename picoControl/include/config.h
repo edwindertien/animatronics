@@ -12,12 +12,25 @@
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
 //#define AMI (1)
-#define LUMI (1)
+//#define LUMI (1)
+#define DESKLIGHT (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+#ifdef DESKLIGHT
+//#define USE_DDSM (1)
+#define USE_STS (1)
+#define BOARD_V2 (1)
+#define USE_OLED (1)
+#define USE_CRSF (1)
+#define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#endif
 
 #ifdef ANIMAL_LOVE
 #define BOARD_V2 (1)
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //#define USE_9685 (1)
 //#define USE_9635 (1)
 #define USE_MOTOR (1)
@@ -63,7 +76,8 @@
 // when no scaling used:
 #define MAX_SPEED 50
 #define USB_JOYSTICK
-
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 127, 0, 0, 127, 0, 0, 0, 0, 0, 0};
 // for serial output on the RJ45 socket
 #define USE_RS485 (1)
 #define RS_485_BAUD 57600
@@ -122,6 +136,8 @@ const String samplelist[NUM_SAMPLES] =
 #ifdef AMI
 // old 
 #include "Audio.h"
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #define BOARD_V2 (1)
 //#define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
@@ -158,6 +174,8 @@ const String samplelist[NUM_SAMPLES] =
 
 ////// hardware specifics for animaltroniek
 #ifdef ANIMALTRONIEK_KREEFT
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // for using DC motors, for example Electromen drives
 // animaltroniek uses 2 x  x EM-115-48 H-brug which uses
 // two inputs for direction and 1 input for velocity.
@@ -197,6 +215,8 @@ const String samplelist[NUM_SAMPLES] =
 
 
 #ifdef ANIMALTRONIEK_VIS
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // for using DC motors, for example Electromen drives
 // animaltroniek uses 2 x  x EM-115-48 H-brug which uses
 // two inputs for direction and 1 input for velocity.
