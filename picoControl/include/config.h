@@ -13,12 +13,28 @@
 //#define SCUBA (1)
 //#define AMI (1)
 //#define LUMI (1)
-#define DESKLIGHT (1)
+//#define DESKLIGHT (1)
+#define EXPERIMENT (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef DESKLIGHT
 //#define USE_DDSM (1)
 #define USE_STS (1)
+#define BOARD_V2 (1)
+#define USE_OLED (1)
+#define USE_CRSF (1)
+#define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
+#define NUM_CHANNELS 16
+const int saveValues[NUM_CHANNELS] = { 127, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#endif
+
+#ifdef EXPERIMENT
+//#define USE_DDSM (1)
+//#define USE_STS (1)
+//#define USE_RS485 (1)
+#define RS_485_BAUD 1000000
+#define ROBOTIS (1)
+
 #define BOARD_V2 (1)
 #define USE_OLED (1)
 #define USE_CRSF (1)
@@ -41,7 +57,7 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // when no scaling used:
 #define MAX_SPEED 50
 
-// for serial output on the RJ45 socket
+// for serial output on the RJ45 socket, goes to APC220 RF interface
 #define USE_RS485 (1)
 #define RS_485_BAUD 9600
 // for the OLED. check the &Wire or &Wire1 (for the latest board). Also check the resolution
@@ -78,9 +94,9 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define USB_JOYSTICK
 #define NUM_CHANNELS 16
 const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 127, 0, 0, 127, 0, 0, 0, 0, 0, 0};
-// for serial output on the RJ45 socket
-#define USE_RS485 (1)
-#define RS_485_BAUD 57600
+// for serial output on the RJ45 socket, goes to CAT5 ethernet cable
+//#define USE_RS485 (1)
+//#define RS_485_BAUD 57600
 // for the OLED. check the &Wire or &Wire1 (for the latest board). Also check the resolution
 #define USE_OLED (1)
 // only use the encoder when these pins are not used for controlling separate motors
@@ -147,7 +163,7 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // when no scaling used:
 #define MAX_SPEED 50
 
-// for serial output on the RJ45 socket
+// for serial output on the RJ45 socket, using CAT5 cable
 #define USE_RS485 (1)
 #define RS_485_BAUD 57600
 // for the OLED. check the &Wire or &Wire1 (for the latest board). Also check the resolution

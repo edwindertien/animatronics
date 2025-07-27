@@ -13,7 +13,7 @@
    As a user, you are responsible for initializing the Serial port (Serial.begin())
  **********************************************************************/
 
-#include "DynamixelReader.h"
+#include "RS485Reader.h"
 
 typedef enum
 {
@@ -28,9 +28,9 @@ d_receive_state;
 //#define DEBUG (1) /* Do undef for no debugging*/
 
 // Prototype for a function that the user will provide somewhere.
-extern void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data);
+extern void ProcessRS485Data(int ID, int dataLength, unsigned char *Data);
 
-void DynamixelInit(long bd, int RS485sr)
+void RS485Init(long bd, int RS485sr)
 {
   Serial1.begin(bd);
   Serial1.setTX(0);
@@ -38,13 +38,13 @@ void DynamixelInit(long bd, int RS485sr)
   pinMode(RS485_SR, OUTPUT);
 }
 
-void DynamixelPoll()
+void RS485Poll()
 {
   static d_receive_state ReceiveState;
   static unsigned char c;
   static char NumberOfDataBytesReceived = 0;
   static unsigned char addressBuffer = 0;
-  static unsigned char Data[DYNAMIXEL_BUFFER_SIZE];
+  static unsigned char Data[RS485_BUFFER_SIZE];
   static unsigned char DataLengthBuffer;
   static unsigned int checksumBuffer = 0;
 
@@ -75,7 +75,7 @@ void DynamixelPoll()
         ReceiveState = WaitingForRestOfMessage;
         break;
       case WaitingForRestOfMessage:
-        if (NumberOfDataBytesReceived < DYNAMIXEL_BUFFER_SIZE)
+        if (NumberOfDataBytesReceived < RS485_BUFFER_SIZE)
         {
           Data[NumberOfDataBytesReceived] = c;
         } // // otherwise, we would have buffer overflow
@@ -90,9 +90,9 @@ void DynamixelPoll()
           // Also, if we had a buffer overflow, we know for sure that the
           // data is invalid (because we only stored part of it, so in that case we
           // should not process it either. It would have been a faulty command anyway).
-          if (((checksumBuffer & 0xFF) == 0xFF) && NumberOfDataBytesReceived < DYNAMIXEL_BUFFER_SIZE)
+          if (((checksumBuffer & 0xFF) == 0xFF) && NumberOfDataBytesReceived < RS485_BUFFER_SIZE)
           {
-            ProcessDynamixelData(addressBuffer, DataLengthBuffer, Data);
+            ProcessRS485Data(addressBuffer, DataLengthBuffer, Data);
           }
           ReceiveState = WaitingForFirstHeaderByte;
         }
@@ -102,7 +102,7 @@ void DynamixelPoll()
 }
 
 
-void DynamixelWrite(int id, int address, int value) {
+void RS485Write(int id, int address, int value) {
   byte vel_hi = (byte)(value >> 8);
   byte vel_lo = (byte)(value & 0xFF);
   // calculate checksum
@@ -118,9 +118,9 @@ void DynamixelWrite(int id, int address, int value) {
     checksum
   };
 
-  DynamixelWriteBuf(buffer, 9);
+  RS485WriteBuf(buffer, 9);
 }
-void DynamixelWriteByte(int id, int address, int value) {
+void RS485WriteByte(int id, int address, int value) {
   // calculate checksum
   int checksum = ~(id + 0x04 + 0x03 + address + value);
   unsigned char buffer[] = {
@@ -132,11 +132,11 @@ void DynamixelWriteByte(int id, int address, int value) {
     (byte)value,
     (byte)checksum
   };
-  DynamixelWriteBuf(buffer, 8);
+  RS485WriteBuf(buffer, 8);
 }
 
 
-void DynamixelRead(int id, int address) {
+void RS485Read(int id, int address) {
 
   // calculate checksum
   byte checksum = ~(id + 0x04 + 0x02 + address + 0x02 );
@@ -156,7 +156,7 @@ void DynamixelRead(int id, int address) {
   digitalWrite(RS485_SR, LOW);
 }
 
-void DynamixelWriteBuf(unsigned char *buffer, int length) {
+void RS485WriteBuf(unsigned char *buffer, int length) {
 
   digitalWrite(RS485_SR, HIGH);
   Serial1.write((uint8_t*)buffer, length);
@@ -164,7 +164,7 @@ void DynamixelWriteBuf(unsigned char *buffer, int length) {
   digitalWrite(RS485_SR, LOW);
 }
 
-void DynamixelWriteBuffer(int id, unsigned char *buffer, int messagelength) {
+void RS485WriteBuffer(int id, unsigned char *buffer, int messagelength) {
   unsigned char length = messagelength + 2;
   unsigned char checksum;
   unsigned char transmitBuffer[20];

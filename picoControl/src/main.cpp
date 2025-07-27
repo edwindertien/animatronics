@@ -73,9 +73,25 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 //// RS485, as passthrough of radio data, or as separate port
 #ifdef USE_RS485
 // for communication with motor driver and other externals
-#include "DynamixelReader.h"
+#include "RS485Reader.h"
 #define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
+
+#ifdef ROBOTIS
+  #include <Dynamixel2Arduino.h>
+  #define DXL_SERIAL   Serial1
+  #define DEBUG_SERIAL Serial
+  const int DXL_DIR_PIN = 2; // DYNAMIXEL RS485 DIR PIN
+  const uint8_t DXL_ID = 1;
+  const float DXL_PROTOCOL_VERSION = 2.0;
+
+  Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
+
+//This namespace is required to use Control table item names
+using namespace ControlTableItem;  
+#endif
+
+
 // running modes
 #define IDLE 0
 #define ACTIVE 1
@@ -196,8 +212,29 @@ relay.begin();
 #endif
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
-  DynamixelInit(RS_485_BAUD, RS485_SR);
+  RS485Init(RS_485_BAUD, RS485_SR);
 #endif
+
+#ifdef ROBOTIS
+  Serial1.setTX(0);
+  Serial1.setRX(1);
+    // Set Port baudrate to 1000000bps. This has to match with DYNAMIXEL baudrate.
+  dxl.begin(1000000);
+  // Set Port Protocol Version. This has to match with DYNAMIXEL protocol version.
+  dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+  
+  dxl.ping(DXL_ID);
+
+  // Turn off torque when configuring items in EEPROM area
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_POSITION);
+  dxl.torqueOn(DXL_ID);
+
+  // Limit the maximum velocity in Position Control Mode. Use 0 for Max speed
+  dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID, 0);
+
+#endif
+
   // radio on Serial2: CRSF or APC RF:
 #ifdef USE_CRSF
   crsf.begin();
@@ -224,7 +261,7 @@ void loop() {
 #endif
 // RS485 as interface. 
 #ifdef USE_RS485
-  DynamixelPoll();
+  RS485Poll();
 #endif
 // there in an encoder on the board, optional
 #ifdef USE_ENCODER
@@ -235,7 +272,7 @@ void loop() {
 // the 20 Hz main loop starts here!
 // -----------------------------------------------------------------------------
   static unsigned long looptime;
-  if (millis() > looptime + 49) {
+  if (millis() > looptime + 19) {
     looptime = millis();
 
 #ifdef USE_CRSF
@@ -350,8 +387,15 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
     for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
       headMessage[i] = channels[i];  // transparent pass-through
     }
-    DynamixelWriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
+    RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
+
+
 #endif
+
+#ifdef ROBOTIS
+  dxl.setGoalPosition(DXL_ID, map(channels[2],0,255,1024,3072));
+#endif
+
 // now for the important mode / time-out settings related to CRSF communication. 
 // only start up when a valid message has been received (see top of the loop)
 // go to safe state after 9 timeout steps (so 0.5 sec)
@@ -457,7 +501,7 @@ void loop1(){
 // the following function is called when RS485 data is received. This is currently
 // not in use
 #ifdef USE_RS485
-void ProcessDynamixelData(int ID, int dataLength, unsigned char *Data) {
+void ProcessRS485Data(int ID, int dataLength, unsigned char *Data) {
 }
 #endif
 // for the other type of radio (not CRSF)

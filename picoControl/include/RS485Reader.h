@@ -1,9 +1,9 @@
-#ifndef __DYNAMIXEL_READER_H__
-#define __DYNAMIXEL_READER_H__
+#ifndef __RS485_READER_H__
+#define __RS485_READER_H__
 
 #include <Arduino.h>
 
-#define DYNAMIXEL_BUFFER_SIZE (128) /* Just a lot so that it will not overflow */
+#define RS485_BUFFER_SIZE (128) /* Just a lot so that it will not overflow */
 #define BOARD_ID 13
 #define RS485_SR 2
 
@@ -23,11 +23,11 @@
 #define sbi(reg,bit)	reg |= (BV(bit))
 
 // Prototype for the function we need to call from outside
-void DynamixelPoll(void);
-void DynamixelInit(long bd, int RS485sr);
-void DynamixelWrite(int id, int address, int value);
-void DynamixelWriteByte(int id, int address, int value);
-void DynamixelRead(int id, int address);
-void DynamixelWriteBuf(unsigned char *buffer, int length);
-void DynamixelWriteBuffer(int id, unsigned char *buffer, int length);
+void RS485Poll(void);
+void RS485Init(long bd, int RS485sr);
+void RS485Write(int id, int address, int value);
+void RS485WriteByte(int id, int address, int value);
+void RS485Read(int id, int address);
+void RS485WriteBuf(unsigned char *buffer, int length);
+void RS485WriteBuffer(int id, unsigned char *buffer, int length);
 #endif
