@@ -74,9 +74,9 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #ifdef USE_RS485
 // for communication with motor driver and other externals
 #include "RS485Reader.h"
-#define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 #endif
-
+// RS485 uses the same serial port and MAX485 driver as the Robotis Dynamixel. 
+// They cannot be used in parallel
 #ifdef ROBOTIS
   #include <Dynamixel2Arduino.h>
   #define DXL_SERIAL   Serial1
@@ -84,13 +84,9 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
   const int DXL_DIR_PIN = 2; // DYNAMIXEL RS485 DIR PIN
   const uint8_t DXL_ID = 1;
   const float DXL_PROTOCOL_VERSION = 2.0;
-
   Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
-
-//This namespace is required to use Control table item names
-using namespace ControlTableItem;  
+  using namespace ControlTableItem;  //This namespace is required to use Control table item names
 #endif
-
 
 // running modes
 #define IDLE 0
