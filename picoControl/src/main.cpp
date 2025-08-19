@@ -208,7 +208,7 @@ relay.begin();
 #endif
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
-  RS485Init(RS_485_BAUD, RS485_SR);
+  RS485Init(RS485_BAUD, RS485_SR);
 #endif
 
 #ifdef ROBOTIS
@@ -379,12 +379,18 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 // the BUFFER_PASSTHROUGH can be set to the minimum number of bytes necessary
 // the Dynamixel protocol uses an ID in the message which has to be set here
 #ifdef USE_RS485
+   #ifdef BUFFER_PASSTHROUGH
     unsigned char headMessage[BUFFER_PASSTHROUGH];
     for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
       headMessage[i] = channels[i];  // transparent pass-through
     }
     RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
+    #else
+ 
+  
+    RS485WriteByte(0, 1, channels[2]);
 
+    #endif
 
 #endif
 
