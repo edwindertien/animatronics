@@ -385,11 +385,11 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
       headMessage[i] = channels[i];  // transparent pass-through
     }
     RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
-    #else
- 
+    #else 
+    #ifdef EXPERIMENT
   
     RS485WriteByte(0, 1, channels[2]);
-
+    #endif
     #endif
 
 #endif
