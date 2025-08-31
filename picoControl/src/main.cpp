@@ -88,6 +88,20 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
   using namespace ControlTableItem;  //This namespace is required to use Control table item names
 #endif
 
+#ifdef CAN_DRIVER
+#include "mcp_can.h"
+#include "TMotor_ServoConnection.h"
+// define constants
+#define CAN0_INT 2 // set interrupt pin for incoming CAN messages
+#endif
+
+#ifdef CUBEMARS
+// init global vars
+#define ID_MOTOR_1 104
+MCP_CAN CAN0(17); // set SPI select pin
+TMotor_ServoConnection servo_conn(CAN0);  // create CAN Servo Connection object
+#endif
+
 // running modes
 #define IDLE 0
 #define ACTIVE 1
@@ -230,6 +244,19 @@ relay.begin();
   dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID, 0);
 
 #endif
+
+#ifdef CAN_DRIVER
+  while(CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) != CAN_OK){ // check if conenction could be establisehd; retry if not
+    Serial.println("Error Initializing MCP2515...");
+    delay(100);
+  } 
+  Serial.println("MCP2515 Initialized Successfully!");
+  CAN0.setMode(MCP_NORMAL);   // Change to normal mode to allow messages to be transmitted
+#endif
+
+#ifdef CUBEMARS
+  servo_conn.set_origin(ID_MOTOR_1, 0);
+  #endif
 
   // radio on Serial2: CRSF or APC RF:
 #ifdef USE_CRSF
@@ -396,6 +423,19 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 
 #ifdef ROBOTIS
   dxl.setGoalPosition(DXL_ID, map(channels[2],0,255,1024,3072));
+#endif
+
+#ifdef CUBEMARS
+  servo_conn.set_pos_spd(ID_MOTOR_1, 180, 1000, 1000);
+  if (!digitalRead(CAN0_INT)) {
+    // get all messages in waiting queue
+    while (CAN_MSGAVAIL == CAN0.checkReceive()) {
+      // receive and process messages
+      servo_conn.can_receive();
+    }
+  }
+  // print received data to Serial output
+  servo_conn.print_motor_vars(ID_MOTOR_1);
 #endif
 
 // now for the important mode / time-out settings related to CRSF communication. 

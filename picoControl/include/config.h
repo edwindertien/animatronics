@@ -33,6 +33,8 @@ const int saveValues[NUM_CHANNELS] = { 127, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0
 //#define USE_DDSM (1)
 //#define USE_STS (1)
 //#define ROBOTIS (1)
+#define CAN_DRIVER (1)
+#define CUBEMARS (1)
 #define BOARD_V1 (1)
 #define USE_RS485 (1)
 #define RS485_BAUD 57600
