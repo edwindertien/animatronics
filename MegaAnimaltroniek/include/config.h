@@ -126,7 +126,7 @@ int servoMax[] =     {130, 130, 130, 130, 90, 90};
 
 #ifdef ANIMAL_LOVE
 #define RS485_BAUD 9600
-
+//RS485 over radio, low baudrate!
 #define NUM_ACTIONS 8
 Action myActionList[NUM_ACTIONS] = {
 Action(5, 0, DIRECT),  //water
@@ -139,9 +139,9 @@ Action('7', 6, DIRECT),
 Action('8', 7, DIRECT),
 };
 
-int servoMins[] =    { 40, 40, 40, 40, 40, 40};
-int servoCenters[] = { 90, 90, 90, 90, 90, 90}; // voor zwaardvis
-int servoMax[] =     {140, 140, 140, 140, 130, 130};
+int servoMins[] =    { 60, 60, 60, 60, 65, 65};
+int servoCenters[] = { 90, 90, 90, 90, 90, 90}; 
+int servoMax[] =     {120, 120, 120, 120, 115, 115};
 
 #endif
 

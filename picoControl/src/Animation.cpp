@@ -18,6 +18,7 @@ Animation::Animation(const animationStep* animationData, int totalSteps) {
   this->totalSteps = totalSteps;
   this->currentStep = 0;
   this->playing = false;
+  this->paused = false;
   this->animationTimer = 0;
 }
 
@@ -25,6 +26,7 @@ Animation::Animation(const animationStep* animationData, int totalSteps) {
 void Animation::start() {
   if (!playing) {
     playing = true;
+    paused = false;
     startTime = millis();
     currentStep = 0; // Start from the first step
   }
@@ -33,6 +35,7 @@ void Animation::start() {
 // Stop the animation
 void Animation::stop() {
   playing = false;
+  paused = false;
   currentStep = 0; // Reset to the first step
   animationTimer = 0;
 }
@@ -54,6 +57,8 @@ void Animation::update() {
     // You would update the output pins or internal state here, for example:
     // updateOutputs(xSetpoint, ySetpoint, buttons, switches);
     // Example:
+    #ifdef ANIMATION_DEBUG
+    if(!paused){
     Serial.print("->");
     Serial.print(currentStep);
     Serial.print("-{");
@@ -67,6 +72,8 @@ void Animation::update() {
     Serial.print(','); Serial.print(switches3);
     Serial.print(','); Serial.print(switches4);
     Serial.println("},");
+  }
+  #endif
     // 
     channels[0] = xSetpoint;
     channels[1] = ySetpoint;
@@ -82,12 +89,21 @@ void Animation::update() {
     if (currentStep < (totalSteps - 1)) {
       currentStep++;
     }
-
+    if(animationTimer>(totalSteps-1)) {
+      paused = true;
+      #ifdef ANIMATION_DEBUG
+      Serial.print("->");
+      Serial.println((totalSteps + PAUSE - animationTimer)/20.0);
+      #endif
+    }
     // If we've reached the last step, and the pause time has elapsed, restart
     if (currentStep == (totalSteps - 1) && animationTimer > (totalSteps + PAUSE)) {
       currentStep = 0;
       animationTimer = 0;
+      paused = false;
+#ifdef ANIMATION_DEBUG
       Serial.println("---------- Restarting Animation ----------");
+#endif
     }
   } else {
     animationTimer = 0;
@@ -99,3 +115,6 @@ bool Animation::isPlaying() {
   return playing;
 }
 
+bool Animation::isPaused() {
+  return paused;
+}

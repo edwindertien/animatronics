@@ -89,6 +89,10 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #endif
 
 #ifdef CAN_DRIVER
+// this bit is using a MCP2515 module on pins 16,18 and 19, with CS on 17 for SPI0
+// or 10 (SCK) 11 (MOSI) 12 (MISO)  for SPI1 (currently used on the V1.0 board)
+// note that the MCP needs 3.3V but the driver 5.0. on a non-joyit module
+// this means cutting the supply line and adding a wire for 5V
 #include "mcp_can.h"
 #include "TMotor_ServoConnection.h"
 // define constants
@@ -96,9 +100,10 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #endif
 
 #ifdef CUBEMARS
-// init global vars
+// init global vars. The cubemars has to be configured (calibrated)
+// using the 'upper' tool on Windows and FTDI (3.3V) cable
 #define ID_MOTOR_1 104
-MCP_CAN CAN0(17); // set SPI select pin
+MCP_CAN CAN0(&SPI1,17); // set SPI select pin
 TMotor_ServoConnection servo_conn(CAN0);  // create CAN Servo Connection object
 #endif
 
@@ -112,7 +117,7 @@ TMotor_ServoConnection servo_conn(CAN0);  // create CAN Servo Connection object
 #include <Motor.h>
 #ifdef BOARD_V1
 // left pin, right pin, pwm pin, brake relay pin. set unused pins to -1
-Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 20, 19 for direction and 18 for PWM)
 Motor motorRight(28, 27, 26, 1);  //
 Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
 # else
@@ -121,7 +126,7 @@ Motor motorLeft(18, 19, 20, 1);   // Motor 1 (Pins 18, 19 for direction and 20 f
 Motor motorRight(26, 27, 28, 2);  //
 Motor tandkrans(21, 22, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
 #else
-Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
+Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 20 19 for direction and 18 for PWM)
 Motor motorRight(28, 21, 22, 1);  //
 Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
 #endif
@@ -132,10 +137,15 @@ Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontrol
 /// key to play standalone animation. Keeps playing when Remote is turned off
 #ifdef ANIMATION_KEY
 #include "Animation.h"
-Animation animation(defaultAnimation, STEPS);
+Animation animation(defaultAnimation, DEFAULT_STEPS);
+#ifdef EXPO_KEY
+Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif
+#endif
+
+
 // for triggers or tracks on DFRobot players. Note: they have to be installed
-// otherwise the initialisation will hang
+// otherwise the initialisation will hang waiting for a response
 #ifdef USE_AUDIO
 DFRobot_DF1201S player1,player2;
 SoftwareSerial player1port(7, 6);
@@ -269,6 +279,9 @@ relay.begin();
   for (int n = 0; n < NUM_CHANNELS; n++) {
         channels[n] = saveValues[n];
   }
+  #ifdef EXPO_KEY
+  pinMode(EXPO_KEY,INPUT_PULLUP);
+  #endif
   watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
 }
 
@@ -295,7 +308,7 @@ void loop() {
 // the 20 Hz main loop starts here!
 // -----------------------------------------------------------------------------
   static unsigned long looptime;
-  if (millis() > looptime + 19) {
+  if (millis() > looptime + 49) {
     looptime = millis();
 
 #ifdef USE_CRSF
@@ -306,8 +319,8 @@ void loop() {
       else digitalWrite(LED_BUILTIN, HIGH);
       // in 16 channel mode the last two channels are used by ELRS for other things
       // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
-#ifdef ANIMATION_KEY     
-      if(!animation.isPlaying()){
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)    
+      if(!animation.isPlaying()&&!expanimation.isPlaying()){
 #else
       if(true){
 #endif
@@ -327,19 +340,21 @@ void loop() {
 
 #ifdef USE_STS
 // top yaw
-st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+//st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// LED
+st.WritePosEx(20, map(channels[0],0,255,0,4095), map(channels[1],0,255,0,4095), 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // top pitch
-st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+//st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // elbow pitch
-st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
+//st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // double joint pitch, joint 12 leads, joint 13 has been tuned to follow
 int centerpos = 1875;
 int value = map(channels[2],0,255,-625,625); 
 int offset = 300;
-st.WritePosEx(13, centerpos - value + offset, 1000, 20);
-st.WritePosEx(12, centerpos + value, 1000, 20);
+//st.WritePosEx(13, centerpos - value + offset, 1000, 20);
+//st.WritePosEx(12, centerpos + value, 1000, 20);
 // bottom yaw
-st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
+//st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
 #endif
 
 
@@ -353,8 +368,8 @@ st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
 #endif
 // THe DC motors are controlled with sign-magnitude (PWM functions in the motor class)
 // only when there is no animation playing (no driving while animating)
-#ifdef USE_MOTOR
-if(!animation.isPlaying()){
+#if defined(USE_MOTOR) && defined(ANIMATION_KEY) && defined(EXPO_KEY)
+if(!animation.isPlaying() && !expanimation.isPlaying()){
   #ifdef USE_SPEEDSCALING
   #ifdef USE_KEYPAD_SPEED
   if(getRemoteSwitch('#')){
@@ -401,6 +416,30 @@ if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()){
   motorRight.setSpeed(0,brakeState);
 }
 if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
+#endif
+
+#ifdef EXPO_KEY
+if(!digitalRead(EXPO_KEY) && !expanimation.isPlaying()){
+  expanimation.start();
+
+}
+if (expanimation.isPlaying() && digitalRead(EXPO_KEY)) {
+  expanimation.stop();
+  motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+        for (int n = 0; n < NUM_CHANNELS; n++) {
+        channels[n] = saveValues[n];
+      }
+}
+if(expanimation.isPaused()||!expanimation.isPlaying()){
+    motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+
+}
+else {
+    motorLeft.setSpeed(-40,brakeState);
+  motorRight.setSpeed(-40,brakeState);
+}
 #endif
 // RS485 passthrough of Remote data (for eyes, etc). In order to reduce the data load
 // the BUFFER_PASSTHROUGH can be set to the minimum number of bytes necessary
@@ -449,8 +488,8 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
       mode = IDLE;
       digitalWrite(LED_BUILTIN, HIGH);
-#ifdef ANIMATION_KEY
-      if(!animation.isPlaying() ){
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)
+      if(!animation.isPlaying() && !expanimation.isPlaying()){
 #else
         if(true){
 #endif
@@ -490,6 +529,9 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 // important: when an animation is playing (is checked in the animation class)
 #ifdef ANIMATION_KEY
   animation.update();
+#endif
+#ifdef EXPO_KEY
+  expanimation.update();
 #endif
 // now the RF processing
   watchdog_update();
@@ -579,11 +621,14 @@ void processScreen(int mode, int position) {
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
     #endif
     display.setCursor(70, 0);
-#ifdef ANIMATION_KEY
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)
     if (animation.isPlaying()){ 
-      display.print (F("anim run"));
+      display.print (F("seq run"));
     }
-    else display.print (F("anim stop"));
+    else if (expanimation.isPlaying()){
+      display.print (F("expo run"));
+    }
+    else display.print (F("no anim"));
 #endif
     // print bars
     for (int n = 0; n < NUM_CHANNELS-2; n++) {

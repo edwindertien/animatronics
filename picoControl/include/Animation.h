@@ -3,9 +3,10 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 #include <config.h>
- 
 
-#define PAUSE 800 // Pause after each complete loop (in loops)
+//#define ANIMATION_DEBUG (1)
+
+#define PAUSE 600 // Pause after each complete loop (in loops)
 
 typedef struct {
   uint8_t xSetpoint;
@@ -31,6 +32,7 @@ class Animation {
 
     // State tracking
     bool isPlaying();
+    bool isPaused();
     
   private:
     const animationStep* animationData;
@@ -39,10 +41,15 @@ class Animation {
     unsigned long startTime;
     unsigned long animationTimer;
     bool playing;
+    bool paused;
 };
 
 #ifdef ANIMATION_KEY
-extern const animationStep defaultAnimation[STEPS] PROGMEM;
+extern const animationStep defaultAnimation[DEFAULT_STEPS] PROGMEM;
+#endif
+
+#ifdef EXPO_KEY
+extern const animationStep expoAnimation[EXPO_STEPS] PROGMEM;
 #endif
 
 #endif

@@ -21,6 +21,7 @@ Servo eyeServo[6];
 
 #ifdef ANIMAL_LOVE
 #define PORT Serial1
+// uses Serial1 for radio instead of the RJ45 socket
 #else
 #define PORT Serial2
 #endif
@@ -142,7 +143,7 @@ void loop() {
     #ifdef ANIMAL_LOVE
     eyeServo[0].write(map(message.xSetpoint, 255, 0, servoMins[0], servoMax[0]));
     eyeServo[1].write(map(message.xSetpoint, 255, 0, servoMins[1], servoMax[1]));
-    eyeServo[2].write(map(message.ySetpoint, 255, 0, servoMins[2], servoMax[2]));
+    eyeServo[2].write(map(message.ySetpoint, 0, 255, servoMins[2], servoMax[2]));
     eyeServo[3].write(map(message.ySetpoint, 255, 0, servoMins[3], servoMax[3]));
     #else
     eyeServo[0].write(map(message.xSetpoint, 0, 255, servoMins[0], servoMax[0]));
@@ -155,12 +156,13 @@ void loop() {
   if (message.buttons == 64) {
     int leftLidvalue = constrain((127 + (message.ySetpoint - 127) + (message.xSetpoint - 127)),0,255);
     int rightLidvalue = constrain((127 + (message.ySetpoint - 127) - (message.xSetpoint - 127)),0,255);
+    
+    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4])); // inverted servo position!! 
     #ifdef ANIMAL_LOVE
-    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMax[4], servoMins[4])); // inverted servo position!! 
-    #else
-    eyeServo[4].write(map(leftLidvalue, 0, 255, servoMins[4], servoMax[4]));
-    #endif
-    if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
+    if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMax[5], servoMins[5]));
+     #else
+  if (!blinking) eyeServo[5].write(map(rightLidvalue, 0, 255, servoMins[5], servoMax[5]));
+      #endif
    // Serial.print(leftLidvalue);
    // Serial.print(',');
    // Serial.println(rightLidvalue);

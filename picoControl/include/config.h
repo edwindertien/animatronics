@@ -1,12 +1,17 @@
 #pragma once
-#define DEBUG (1)
+//#define DEBUG (1)
+
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
 // the animation tracks are added in the file animation.cpp, the number of steps in the
 // header file animation.h (so check those before compiling.)
+// Two versions of the board currently: 
+// V1.0 misses the wire between radio VCC and 3.3V
+// V2.0 ... 
+// V3.0 (not populated yet)
 //////////////////////////////////////////////////////////////////////////////////////////////
-//#define ANIMAL_LOVE
-//#define KLARA
+#define ANIMAL_LOVE (1)
+//#define KLARA (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
@@ -14,7 +19,7 @@
 //#define AMI (1)
 //#define LUMI (1)
 //#define DESKLIGHT (1)
-#define EXPERIMENT (1)
+//#define EXPERIMENT (1)
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef DESKLIGHT
@@ -79,7 +84,9 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (30) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
-#define STEPS 967 
+#define EXPO_KEY (15) // set the pin to trigger the expo animation using a switch
+#define DEFAULT_STEPS 967 
+#define EXPO_STEPS 985
 #endif
 
 
