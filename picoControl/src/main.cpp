@@ -419,6 +419,7 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
 
 #ifdef EXPO_KEY
+if(mode==IDLE){}
 if(!digitalRead(EXPO_KEY) && !expanimation.isPlaying()){
   expanimation.start();
 
@@ -439,6 +440,7 @@ if(expanimation.isPaused()||!expanimation.isPlaying()){
 else {
     motorLeft.setSpeed(-40,brakeState);
   motorRight.setSpeed(-40,brakeState);
+}
 }
 #endif
 // RS485 passthrough of Remote data (for eyes, etc). In order to reduce the data load
