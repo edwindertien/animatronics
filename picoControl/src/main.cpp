@@ -419,7 +419,7 @@ if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif
 
 #ifdef EXPO_KEY
-if(mode==IDLE){}
+if(mode==IDLE){
 if(!digitalRead(EXPO_KEY) && !expanimation.isPlaying()){
   expanimation.start();
 
