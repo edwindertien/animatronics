@@ -21,6 +21,9 @@ void PicoRelay::begin() {
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(16000);
+  for (int i=0; i<16; i++){
+    writeRelay(i,0);
+  }
 #elif defined(USE_9635)
     pwm.begin();
 #endif

@@ -46,14 +46,14 @@
 #define FAST_MODE 1.0
 #define RF_MAX_CHANNEL 16
 //                                           0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,19,15,20,21,22,23,23,23,23,23,23,23,23};
+unsigned char channelMap[RF_MAX_CHANNEL] = {16,17,18,19,8,20,21,22,23,31,31,31,31,31,31,31};
 // originally, the latest 'universal remote' for EXOOT uses
 //                          X    Y    bt  sw  vol k2a k2b k1a k1b
 // int transmitBuffer[9] = {127, 127, 0,  0,  0,  0,  0,  0,  0};
 
 int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // used channels on the mux
 int switchChannel[] = {2,2,2,2,2,2,2,2,0,1,1,1,1,1,1,1};  // switch type channels
-int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};  // values that need to be inverted
+int invertChannel[] = {0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1};  // values that need to be inverted
 #endif
 #ifdef AMI
 #define USE_CRSF (1)

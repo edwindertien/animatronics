@@ -148,9 +148,9 @@ Animation expanimation(expoAnimation, EXPO_STEPS);
 // otherwise the initialisation will hang waiting for a response
 #ifdef USE_AUDIO
 DFRobot_DF1201S player1,player2;
-SoftwareSerial player1port(7, 6);
+SoftwareSerial player1port(7, 6);    
 SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
-void processAudio();
+//void processAudio();
 #endif
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
@@ -210,6 +210,11 @@ void setup() {
   // st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
   // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
 #endif
+
+#ifdef USE_AUDIO
+audioInit(&player1, &player1port, &player2, &player2port);
+#endif
+
 #ifdef USE_OLED
   // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
@@ -537,6 +542,14 @@ else {
 #ifdef EXPO_KEY
   expanimation.update();
 #endif
+
+    #ifdef USE_AUDIO
+     static int volume;
+     if(channels[4]!=volume) {
+      player1.setVol(map(channels[4],0,255,0,32));
+      player2.setVol(map(channels[4],0,255,0,32));
+    }
+    #endif
 // now the RF processing
   watchdog_update();
   }  
@@ -564,7 +577,7 @@ void setup1(){
 #endif
   // audio players
 #ifdef USE_AUDIO
-audioInit(&player1, &player1port, &player2, &player2port);
+//audioInit(&player1, &player1port, &player2, &player2port);
 #endif
 }
 void loop1(){
@@ -582,6 +595,7 @@ void loop1(){
     #ifdef LUMI
         processAudio(); // as separate void below...   
     #endif
+
   }
 }
 // end of core1 code
@@ -659,10 +673,10 @@ void processScreen(int mode, int position) {
 // also starting up a file takes more than 50 mS (so you will see a dip in message rate)
 // it would be advisable to run this on the other core, were it not for the fact that that would conflict
 // with the USB joystick functionality. 
-#ifdef USE_AUDIO
+#ifdef LUMI
 void processAudio(void){
   static int isPlaying = 0;
-     static int volume1;
+      static int playingSample;
      //static int playTimer = 0; 
      int trackToPlay = channels[13]/8;
      if(trackToPlay == 0 && isPlaying && channels[6]<100){
@@ -674,10 +688,11 @@ void processAudio(void){
        //player1.playFileNum(trackToPlay);
        isPlaying = trackToPlay;
      }
+     static int volume1;
      if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
      volume1 = channels[4];
      // the separate samples:
-     static int playingSample;
+    
      static int volume2;
      if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
      volume2 = channels[7];

@@ -1,6 +1,9 @@
 #include "Action.h"
 #include "PicoRelay.h"
+
 extern bool getRemoteSwitch(char button);  // this wil be provided somewhere
+/////extern SoftwareSerial player1port;
+//extern SoftwareSerial player2port;
 //extern void writeRelay(int relay,bool state);
 extern PicoRelay relay;
 
@@ -26,13 +29,13 @@ Action::Action(char button, int relaynr, int mode, Motor* motor, int motorvalue)
   init();
 }
 
-Action::Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int tracknr,  DFRobot_DF1201S* player) {
+Action::Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int track,  DFRobot_DF1201S* player) {
   this->button = button;
   this->relaynr = relaynr;
   this->mode = mode;
   this->motor = motor;
   this->motorvalue = motorvalue;
-  this->tracknr = tracknr;
+  this->track = track;
   this->player = player;
   state = 0;
   previousState = 0;
@@ -62,8 +65,9 @@ void Action::update() {
     }
   }
   else if (mode == TRIGGER) {
-    if (getRemoteSwitch(button) && previousState == 0){
+    if (getRemoteSwitch(button)  && previousState == 0){
       trigger();
+      
     }
   }
   previousState = getRemoteSwitch(button);
@@ -83,10 +87,17 @@ void Action::trigger() {
   // Play sound if a soundfile is provided
   //if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
   //    player->playSpecFile(soundfile);
-  if (player != nullptr && tracknr>0){
-      player->playFileNum(tracknr);
-  
+  if (player == &player1 && track >0){
+     //player->playFileNum(tracknr);
+     player1port.listen();
+  player1.playFileNum(track);
       //Serial.println(soundfile);
+  }
+  else if(player== &player2 && track>0)
+  {
+  player2port.listen();
+  player2.playFileNum(track);
+
   }
       //  writeRelay(relay,HIGH);
 
@@ -103,20 +114,19 @@ void Action::stop() {
       // Pause motor if it's initialized
       if (motor != nullptr) {
           motor->setSpeed(0,0);  // Stop the motor
-          //Serial.println("Motor stopped.");
       }
   
       // Pause sound if player is initialized
-      if (player != nullptr) {
-          player->pause();
-          //Serial.println("Sound paused.");
+      if (player == &player1) {
+          player1port.listen();
+          player1.pause();
       }
-      //   writeRelay(relay,LOW);
+      else if(player == &player2) {
+        player2port.listen();
+        player2.pause();
+      }
 
-      // if (player) {
-      //   player->pause();
-      //   Serial.println("pause");
-      // }
+
 }
 
 int Action::getState() {

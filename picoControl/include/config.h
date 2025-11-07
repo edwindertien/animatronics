@@ -1,5 +1,5 @@
 #pragma once
-//#define DEBUG (1)
+#define DEBUG (1)
 
 // note that this definition has its consequences in the main.cpp and also in action.h (where
 // each action mapping is given)
@@ -165,6 +165,7 @@ const String samplelist[NUM_SAMPLES] =
 #define NUM_CHANNELS 16
 const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //#define BOARD_V2 (1)
+#define BOARD_V1 (1)
 //#define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -192,9 +193,9 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define NUM_TRACKS 3
 const String tracklist[NUM_TRACKS] = 
 {
-  "/mp3/01-int.mp3",
-  "/mp3/02-dro.mp3",
-  "/mp3/03-maz.mp3"
+  "/loop1.mp3",
+  "/loop2.mp3",
+  "/loop3.mp3"
 };
 #define NUM_SAMPLES 6
 const String samplelist[NUM_SAMPLES] = 

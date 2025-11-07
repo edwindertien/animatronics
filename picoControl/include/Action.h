@@ -6,6 +6,7 @@
 #include "Audio.h"
 
 
+
 #define DIRECT 0
 #define TOGGLE 1
 #define TRIGGER 2
@@ -16,6 +17,7 @@ class Action {
   int motorvalue = 0;
   //const char* soundfile = nullptr;
   int tracknr = 0;
+  int track = 0;
   DFRobot_DF1201S* player = nullptr;
     char button;
     int relaynr;
@@ -28,7 +30,7 @@ class Action {
   Action(char button, int relaynr, int mode);
   Action(char button, int relaynr, int mode, Motor* motor, int motorvalue);
   //Action(char button, int relay, int mode, Motor* motor, int motorvalue, const char *soundfile, DFRobot_DF1201S* player);
-  Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int tracknr, DFRobot_DF1201S* player);
+  Action(char button, int relaynr, int mode, Motor* motor, int motorvalue, int track, DFRobot_DF1201S* player);
        
     void update();
     void trigger();
@@ -112,5 +114,25 @@ Action myActionList[NUM_ACTIONS] = {
   //Action('4', 4, DIRECT),
   Action(10, 4, DIRECT), // on button s
   Action(11, 5, DIRECT),
+};
+#endif
+
+#ifdef AMI
+// important mapping of actions, buttons, relay channels and sounds
+#define NUM_ACTIONS 8
+Action myActionList[NUM_ACTIONS] = {
+  Action(18, -1, DIRECT, nullptr, 100, 1, &player1),
+  Action(20, -1, DIRECT, nullptr, 100, 2, &player1),
+  Action(22, -1, DIRECT, nullptr, 100, 4, &player1),
+  Action('2', -1, TRIGGER, nullptr, 100, 1, &player2),
+  Action('3', 2, DIRECT, nullptr, 100, 2, &player2),
+  Action('4', 3, DIRECT, nullptr, 100, 3, &player2),
+  Action('5', 4, DIRECT, nullptr, 100, 4, &player2),
+  //Action('1', -1, DIRECT, &tandkrans, -100),
+  //Action('2', -1, DIRECT, &tandkrans, -100),
+  Action('1', 0, DIRECT)
+  //Action('4', 4, DIRECT),
+  //Action(10, 4, DIRECT), // on button s
+  //Action(11, 5, DIRECT),
 };
 #endif
