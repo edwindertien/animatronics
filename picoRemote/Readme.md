@@ -13,11 +13,11 @@ in order to reduce data load, for switch channels 'stuffing' is possible, where 
 (either single or double switch) occupies 2 bits. (so 32 bits for 16 (double) switches)
 the keypad is sent as one single character ('0', '1', .. ,'9', '#', '*')
 
-note that the wiring coulour for the 3axis joystick is counter-intuitive: 
+note that the wiring coulour for the 3 axis joystick is counter-intuitive: 
 
-black: signal
-white: GND
-red: VCC
+- black: signal
+- white: GND
+- red: VCC
 
 Every channel is wired with a standard 'servo' cable: 
 

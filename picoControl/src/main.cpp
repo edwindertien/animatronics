@@ -411,9 +411,11 @@ Serial.print('{');
 // needless to say, this key value should NOT! be recorded
 #ifdef ANIMATION_KEY
 if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()){
-  animation.start();      
+  animation.start(); 
+  #ifdef USE_MOTOR     
   motorLeft.setSpeed(0,brakeState);
   motorRight.setSpeed(0,brakeState);
+  #endif
 }
 if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
 #endif

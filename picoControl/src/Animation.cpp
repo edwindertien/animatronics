@@ -9,7 +9,9 @@
 #ifdef ANIMALTRONIEK_VIS
 #include "Track-vis.h"
 #endif
-
+#ifdef AMI
+#include "Track-animalove.h"
+#endif
 extern int channels[];  // the global channel array (aargh)
 
 // Constructor to initialize animation data and total steps

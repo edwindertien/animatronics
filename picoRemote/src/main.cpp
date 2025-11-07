@@ -314,7 +314,7 @@ Serial.println("");
   processScreen(3,4,maxlipo.cellPercent(),tracknr); 
   #endif
   #else
-processScreen(1,4,0.0); 
+processScreen(1,4,0.0,0); 
 #endif
 
     
@@ -382,6 +382,9 @@ void loop1(){
 
 void processScreen(int menu, int position, float battery, int tracknr){
     display.clearDisplay();
+    #ifdef DISPLAY_ROTATE
+    display.setRotation(2);
+    #endif
     if (menu == 0) {
       // nothing yet, only the 'position' slider
       display.fillRect(0, 0, 4, position, SSD1306_WHITE);

@@ -10,13 +10,13 @@
 // V2.0 ... 
 // V3.0 (not populated yet)
 //////////////////////////////////////////////////////////////////////////////////////////////
-#define ANIMAL_LOVE (1)
+//#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
-//#define AMI (1)
+#define AMI (1)
 //#define LUMI (1)
 //#define DESKLIGHT (1)
 //#define EXPERIMENT (1)
@@ -164,7 +164,7 @@ const String samplelist[NUM_SAMPLES] =
 #include "Audio.h"
 #define NUM_CHANNELS 16
 const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-#define BOARD_V2 (1)
+//#define BOARD_V2 (1)
 //#define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -189,6 +189,25 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // note the board will only start when audio players are available
 #define USE_AUDIO (1)
 
+#define NUM_TRACKS 3
+const String tracklist[NUM_TRACKS] = 
+{
+  "/mp3/01-int.mp3",
+  "/mp3/02-dro.mp3",
+  "/mp3/03-maz.mp3"
+};
+#define NUM_SAMPLES 6
+const String samplelist[NUM_SAMPLES] = 
+{
+  "/mp3/01-alm.mp3",
+  "/mp3/02-ang.mp3",
+  "/mp3/03-slp.mp3",
+  "/mp3/04-mov.mp3",
+  "/mp3/05-noo.mp3",
+  "/mp3/06-yes.mp3"
+};
+
+
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
 
@@ -197,6 +216,8 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
 #define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+#define DEFAULT_STEPS 967 
+#define EXPO_STEPS 985
 #endif
 
 ////// hardware specifics for animaltroniek
