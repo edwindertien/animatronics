@@ -74,6 +74,8 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #ifdef USE_RS485
 // for communication with motor driver and other externals
 #include "RS485Reader.h"
+#define FAST_SPEED 200
+#define SLOW_SPEED 150
 #endif
 // RS485 uses the same serial port and MAX485 driver as the Robotis Dynamixel. 
 // They cannot be used in parallel
@@ -239,6 +241,18 @@ relay.begin();
 #ifdef USE_RS485
   RS485Init(RS485_BAUD, RS485_SR);
 #endif
+
+#ifdef AMI  
+// startup motors: 
+  RS485WriteByte(18, 1, 1); // motor active
+  delay(300);
+  RS485WriteByte(18, 2, 0); // motor neutral
+    //ServoBoardWrite(18, 2, BREAKING); // motor neutral //was 18, 2, breaking
+    //ServoBoardWrite(22, 1, 127); // steer neutral
+  RS485WriteByte(22,1,127);
+#endif
+
+
 
 #ifdef ROBOTIS
   Serial1.setTX(0);
@@ -461,10 +475,39 @@ else {
     }
     RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
     #else 
-    #ifdef EXPERIMENT
-  
-    RS485WriteByte(0, 1, channels[2]);
-    #endif
+     #ifdef AMI
+     /// steer software
+      if ((channels[0] > 135 || channels[0] < 120) && mode==ACTIVE && !animation.isPlaying()) {
+        RS485WriteByte(22, 1, map(channels[0], 0, 255, 255, 0));
+      }
+      else RS485WriteByte(22, 1, 127);
+      // deadzone check and limiting of values. this is aditional to limiting in the transmitter
+      // note that the MAX_BACK and MAX_FRONT values defined earlier are the 'fast, turbo boost'
+      // values. For normal operation the values are limited in the transmitter.
+      if (channels[2]==192) {
+        if (channels[1] < 110 && mode==ACTIVE && !animation.isPlaying()) { // back
+          RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, FAST_SPEED, 0), 0, FAST_SPEED));
+        }
+        else if (channels[1] > 135 && mode==ACTIVE && !animation.isPlaying()) {
+          RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, FAST_SPEED), 0, FAST_SPEED)); // forward
+        }
+        else RS485WriteByte(18, 2, 0); // neutral
+      }
+      else if(channels[2]==64){
+        if (channels[1] < 110 && mode==ACTIVE && !animation.isPlaying()) { // back
+          RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, SLOW_SPEED, 0), 0, SLOW_SPEED));
+        }
+        else if (channels[1] > 135 && mode==ACTIVE && !animation.isPlaying()) {
+          RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, SLOW_SPEED), 0, SLOW_SPEED)); // forward
+        }
+        else RS485WriteByte(18, 2, 0); // neutral
+      }
+
+    RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));
+    RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));
+
+     #endif
+
     #endif
 
 #endif
@@ -509,6 +552,10 @@ else {
       #ifdef USE_MOTOR
       motorLeft.setSpeed(0,brakeState);
       motorRight.setSpeed(0,brakeState);
+      #endif
+      #ifdef AMI
+      RS485WriteByte(18, 2, 0); // motor neutral
+      RS485WriteByte(22,1,127); // steer neutral
       #endif
     }
 #ifdef USE_CRSF

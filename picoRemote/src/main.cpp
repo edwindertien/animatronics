@@ -276,9 +276,9 @@ static unsigned long looptime;
 
 #endif
 #ifdef DEBUG
-for(int i = 0; i< 4; i++){
-  Serial.print(channels[20+i]);
-  if(i<3)Serial.print(',');
+for(int i = 0; i< 24; i++){
+  Serial.print(channels[i]);
+  Serial.print(',');
 }
 Serial.println("");
 #endif

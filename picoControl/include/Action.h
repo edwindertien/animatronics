@@ -119,18 +119,30 @@ Action myActionList[NUM_ACTIONS] = {
 
 #ifdef AMI
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 8
+#define NUM_ACTIONS 15
 Action myActionList[NUM_ACTIONS] = {
-  Action(18, -1, DIRECT, nullptr, 100, 1, &player1),
-  Action(20, -1, DIRECT, nullptr, 100, 2, &player1),
-  Action(22, -1, DIRECT, nullptr, 100, 4, &player1),
-  Action('2', -1, TRIGGER, nullptr, 100, 1, &player2),
-  Action('3', 2, DIRECT, nullptr, 100, 2, &player2),
-  Action('4', 3, DIRECT, nullptr, 100, 3, &player2),
-  Action('5', 4, DIRECT, nullptr, 100, 4, &player2),
-  //Action('1', -1, DIRECT, &tandkrans, -100),
-  //Action('2', -1, DIRECT, &tandkrans, -100),
-  Action('1', 0, DIRECT)
+  Action(2, -1, DIRECT, nullptr, 100, 1, &player1), // track 1
+  Action(4, -1, DIRECT, nullptr, 100, 2, &player1), // track 2
+  Action(6, -1, DIRECT, nullptr, 100, 4, &player1), // track 3
+  Action(0, 11, DIRECT), // zwaailicht
+  Action(16, 4, DIRECT),  // achterklep open
+  Action(17, 5, DIRECT), // achterklep dicht
+  Action(12, 0, DIRECT),  // arm uit 
+  Action(13, 1, DIRECT), // arm in
+  Action(10, 22, DIRECT),  // motorkap open
+  Action(11, 23, DIRECT), // motorkap dicht
+  Action(14, 14, DIRECT), // lift up
+  Action(15,21,DIRECT), // elevator release
+  Action('0',20,DIRECT), // elevator release back
+  Action(8,15, DIRECT), // vleugeldeur
+  Action(9,12, DIRECT),
+  // Action('2', -1, TRIGGER, nullptr, 100, 1, &player2),
+  // Action('3', 2, DIRECT, nullptr, 100, 2, &player2),
+  // Action('4', 3, DIRECT, nullptr, 100, 3, &player2),
+  // Action('5', 4, DIRECT, nullptr, 100, 4, &player2),
+  // //Action('1', -1, DIRECT, &tandkrans, -100),
+  // //Action('2', -1, DIRECT, &tandkrans, -100),
+  // Action('1', 16, DIRECT)
   //Action('4', 4, DIRECT),
   //Action(10, 4, DIRECT), // on button s
   //Action(11, 5, DIRECT),

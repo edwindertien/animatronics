@@ -22,6 +22,10 @@ public:
     void begin();
     void writeRelay(int relaynr, bool state);
 
+#if defined(EXTRA_RELAY)
+int relaypin[8] = {18,19,20,21,22,26,27,28};
+#endif
+
 #if defined(LUMI)
     void joystickToRelays(int x, int y);
 
@@ -36,6 +40,9 @@ private:
 #elif defined(USE_9635)
     PCA9635 pwm;
 #endif
+
+
+
 };
 
 #endif // PICO_RELAY_H

@@ -122,7 +122,7 @@ void RS485Write(int id, int address, int value) {
 }
 void RS485WriteByte(int id, int address, int value) {
   // calculate checksum
-  int checksum = ~(id + 0x04 + 0x03 + address + value);
+  unsigned char checksum = ~(id + 0x04 + 0x03 + address + value);
   unsigned char buffer[] = {
     (byte)0xFF, (byte)0xFF, // Header
     (byte)id,

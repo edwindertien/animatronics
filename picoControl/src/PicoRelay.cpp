@@ -27,15 +27,35 @@ void PicoRelay::begin() {
 #elif defined(USE_9635)
     pwm.begin();
 #endif
+#if defined(EXTRA_RELAY)
+
+for(int i=0; i<8; i++){
+    pinMode(relaypin[i],OUTPUT);
+    digitalWrite(relaypin[i],HIGH);
+}
+
+#endif
+
 }
 
 void PicoRelay::writeRelay(int relaynr, bool state) {
-    if (relaynr < 0 || relaynr >= 16) return;
-
+    if (relaynr < 0 || relaynr >= 24) return;
+if(relaynr >= 0 && relaynr <16){
 #if defined(USE_9685)
     pwm.setPWM(relaynr, 0, state ? 0 : 4095);
 #elif defined(USE_9635)
     pwm.setLedDriverMode(relaynr, state ? PCA963X_LEDON : PCA963X_LEDOFF);
+#endif
+} 
+#if defined(EXTRA_RELAY)
+else if(relaynr >= 16 && relaynr <24 )
+{
+  digitalWrite(relaypin[relaynr-16],state ? LOW : HIGH);
+  Serial.print(relaypin[relaynr-16]);
+  Serial.print(',');
+  Serial.println(state);
+ 
+}
 #endif
 }
 

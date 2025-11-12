@@ -164,8 +164,9 @@ const String samplelist[NUM_SAMPLES] =
 #include "Audio.h"
 #define NUM_CHANNELS 16
 const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-//#define BOARD_V2 (1)
-#define BOARD_V1 (1)
+#define BOARD_V2 (1)
+//#define BOARD_V1 (1)
+#define EXTRA_RELAY (1) 
 //#define USE_MOTOR (1)
 //#define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -177,7 +178,7 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // for serial output on the RJ45 socket, using CAT5 cable
 #define USE_RS485 (1)
 #define RS485_BAUD 57600
-#define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
+//#define BUFFER_PASSTHROUGH 9  // message size, reduce to relevant portion
 // for the OLED. check the &Wire or &Wire1 (for the latest board). Also check the resolution
 #define USE_OLED (1)
 // only use the encoder when these pins are not used for controlling separate motors
@@ -190,24 +191,6 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 // note the board will only start when audio players are available
 #define USE_AUDIO (1)
 
-#define NUM_TRACKS 3
-const String tracklist[NUM_TRACKS] = 
-{
-  "/loop1.mp3",
-  "/loop2.mp3",
-  "/loop3.mp3"
-};
-#define NUM_SAMPLES 6
-const String samplelist[NUM_SAMPLES] = 
-{
-  "/mp3/01-alm.mp3",
-  "/mp3/02-ang.mp3",
-  "/mp3/03-slp.mp3",
-  "/mp3/04-mov.mp3",
-  "/mp3/05-noo.mp3",
-  "/mp3/06-yes.mp3"
-};
-
 
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
@@ -216,7 +199,7 @@ const String samplelist[NUM_SAMPLES] =
 #define VOLUME_CHANNEL 4
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
-#define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+#define ANIMATION_KEY (32) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
 #define DEFAULT_STEPS 967 
 #define EXPO_STEPS 985
 #endif

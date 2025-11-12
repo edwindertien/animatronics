@@ -25,8 +25,8 @@
 //#define LUMI (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
-//#define AMI (1)
-#define EXPERIMENTAL (1)
+#define AMI (1)
+//#define EXPERIMENTAL (1)
 
 
 #ifdef EXPERIMENTAL
