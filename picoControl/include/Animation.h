@@ -2,7 +2,6 @@
 #define __ANIMATION_H__
 #include <Arduino.h>
 #include <avr/pgmspace.h>
-#include <config.h>
 
 //#define ANIMATION_DEBUG (1)
 

@@ -121,10 +121,10 @@ void Action::stop() {
           player1port.listen();
           player1.pause();
       }
-      else if(player == &player2) {
-        player2port.listen();
-        player2.pause();
-      }
+    //  if(player == &player2) {
+    //     player2port.listen();
+    //     player2.pause();
+    //   }
 
 
 }

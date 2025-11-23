@@ -2,7 +2,7 @@
 #define __TRACKVIS_H__
 
 //#define STEPS 1005
-extern const animationStep defaultAnimation[STEPS] PROGMEM ={
+const animationStep defaultAnimation[DEFAULT_STEPS] PROGMEM ={
     {145,132,0,0,0,0,0,0,1},
     {144,130,0,0,0,0,0,0,1},
     {144,130,0,0,0,0,0,0,1},

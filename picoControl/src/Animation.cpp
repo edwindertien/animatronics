@@ -1,17 +1,9 @@
+#include "vehicle_select.h"
+#include "config.h" 
 #include "Animation.h"
-#include <config.h>
-#ifdef ANIMAL_LOVE
-#include "Track-animalove.h"
-#endif
-#ifdef ANIMALTRONIEK_KREEFT
-#include "Track-kreeft.h"
-#endif
-#ifdef ANIMALTRONIEK_VIS
-#include "Track-vis.h"
-#endif
-#ifdef AMI
-#include "Track-animalove.h"
-#endif
+#include "PicoRelay.h"
+
+
 extern int channels[];  // the global channel array (aargh)
 
 // Constructor to initialize animation data and total steps

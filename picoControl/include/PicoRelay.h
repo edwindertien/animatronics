@@ -2,7 +2,6 @@
 #define PICO_RELAY_H
 
 #include <Arduino.h>
-#include <config.h>
 
 #ifdef BOARD_V2
 #define  USE_9635 (1)   // the 8 bit switcher

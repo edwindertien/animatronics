@@ -1,8 +1,10 @@
 #ifndef __TRACKKREEFT_H__
 #define __TRACKKREEFT_H__
 
+#include "Animation.h"
+
 //#define STEPS 985
-extern const animationStep defaultAnimation[STEPS] PROGMEM ={
+ const animationStep defaultAnimation[DEFAULT_STEPS] PROGMEM ={
 {127,127,0,0,0,0,0,0,0},
 {115,156,0,0,0,0,0,0,0},
 {103,175,0,0,0,0,0,0,0},

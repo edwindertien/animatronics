@@ -1,7 +1,7 @@
-#include "PicoRelay.h"
 #include <math.h>
-#include <config.h>
-
+#include "vehicle_select.h"
+#include "config.h"
+#include "PicoRelay.h"
 PicoRelay::PicoRelay()
 #if defined(USE_9685)
     : pwm()
@@ -16,6 +16,7 @@ PicoRelay::PicoRelay()
 
 void PicoRelay::begin() {
 #if defined(USE_9685)
+Serial.println("9685");
     //pwm.begin();
     //pwm.setPWMFreq(1000);
   pwm.begin();
@@ -25,6 +26,7 @@ void PicoRelay::begin() {
     writeRelay(i,0);
   }
 #elif defined(USE_9635)
+Serial.println("9635");
     pwm.begin();
 #endif
 #if defined(EXTRA_RELAY)
@@ -40,6 +42,7 @@ for(int i=0; i<8; i++){
 
 void PicoRelay::writeRelay(int relaynr, bool state) {
     if (relaynr < 0 || relaynr >= 24) return;
+    
 if(relaynr >= 0 && relaynr <16){
 #if defined(USE_9685)
     pwm.setPWM(relaynr, 0, state ? 0 : 4095);

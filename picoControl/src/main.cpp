@@ -14,20 +14,22 @@
 //
 // resources:
 // https://arduino-pico.readthedocs.io/en/latest/index.html
-// edit the config.h to set the specifics for a used robot or vehicle
+
 #include <Arduino.h> // the EarlPhilHower Arduino port of Pico SDK
 #include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
-#include <config.h>  // the specifics for the controlled robot or vehicle
 #include <hardware/watchdog.h>
+#include "vehicle_select.h"
+#include "config.h"  // the specifics for the controlled robot or vehicle
+bool blink;
 // hardware on every board: the relay sockets
-#include <PicoRelay.h>
+#include "PicoRelay.h"
 PicoRelay relay;
 //////////////////////////////////////////////////////////////////////////////////////////////
 // the one and only global channel array containing the received values from RF
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
-//                               0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-int channels[NUM_CHANNELS] =   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// for most of the exoot:        X  Y nb kp vo sw sw sw sw
+//                               0    1    2  3  4  5  6  7  8  9 10 11 12 13 14 15
+int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// for most of the exoot:        X    Y    nb kp vo sw sw sw sw
 //////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef USE_OLED
 // OLED display
@@ -113,35 +115,29 @@ TMotor_ServoConnection servo_conn(CAN0);  // create CAN Servo Connection object
 #define IDLE 0
 #define ACTIVE 1
 #define PLAYBACK 2
-/////// Electromen motor drivers (or other sigh-magnitude PWM drivers)
-#ifdef USE_MOTOR
-#define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
-#include <Motor.h>
-#ifdef BOARD_V1
-// left pin, right pin, pwm pin, brake relay pin. set unused pins to -1
-Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 20, 19 for direction and 18 for PWM)
-Motor motorRight(28, 27, 26, 1);  //
-Motor tandkrans(21, 22, -1, -1);  // 21 and 22 for control, no PWM (motorcontroller set at fixed speed)
-# else
-#ifdef ANIMAL_LOVE
-Motor motorLeft(18, 19, 20, 1);   // Motor 1 (Pins 18, 19 for direction and 20 for PWM)
-Motor motorRight(26, 27, 28, 2);  //
-Motor tandkrans(21, 22, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
-#else
-Motor motorLeft(20, 19, 18, 0);   // Motor 1 (Pins 20 19 for direction and 18 for PWM)
-Motor motorRight(28, 21, 22, 1);  //
-Motor tandkrans(26, 27, -1, -1);  // 26 and 27 for control, no PWM (motorcontroller set at fixed speed)
-#endif
-#endif
-#endif
+
 //// Action libray to select button press actions (sound + relay trigger)
 #include "Action.h"  // needs audio and the available motor's to link actions to.
+
+
 /// key to play standalone animation. Keeps playing when Remote is turned off
 #ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, DEFAULT_STEPS);
 #ifdef EXPO_KEY
 Animation expanimation(expoAnimation, EXPO_STEPS);
+#endif
+#ifdef AMI
+#include "Track-animalove.h"
+#endif
+#ifdef ANIMAL_LOVE
+#include "Track-animalove.h"
+#endif
+#ifdef ANIMALTRONIEK_KREEFT
+#include "Track-kreeft.h"
+#endif
+#ifdef ANIMALTRONIEK_VIS
+#include "Track-vis.h"
 #endif
 #endif
 
@@ -152,7 +148,9 @@ Animation expanimation(expoAnimation, EXPO_STEPS);
 DFRobot_DF1201S player1,player2;
 SoftwareSerial player1port(7, 6);    
 SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
-//void processAudio();
+#ifdef LUMI
+void processAudio(); // special function for lumi
+#endif
 #endif
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
@@ -215,6 +213,7 @@ void setup() {
 
 #ifdef USE_AUDIO
 audioInit(&player1, &player1port, &player2, &player2port);
+// lumi does this on core 2
 #endif
 
 #ifdef USE_OLED
@@ -233,9 +232,7 @@ audioInit(&player1, &player1port, &player2, &player2port);
 relay.begin();
 ///////////////////
 #ifdef USE_MOTOR
-  motorLeft.init();
-  motorRight.init();
-  tandkrans.init();
+configureMotors();
 #endif
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
@@ -250,9 +247,8 @@ relay.begin();
     //ServoBoardWrite(18, 2, BREAKING); // motor neutral //was 18, 2, breaking
     //ServoBoardWrite(22, 1, 127); // steer neutral
   RS485WriteByte(22,1,127);
+  configureSequences();
 #endif
-
-
 
 #ifdef ROBOTIS
   Serial1.setTX(0);
@@ -503,14 +499,28 @@ else {
         else RS485WriteByte(18, 2, 0); // neutral
       }
 
-    RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));
-    RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));
+    RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));  // for the eyes
+    RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));  // for the eyelids
 
+
+    
      #endif
 
     #endif
 
 #endif
+
+#ifdef AMI
+    if(getRemoteSwitch('2') && !blink){
+       blink = 1;
+       player2port.listen();
+       player2.playFileNum(2);
+       RS485WriteByte(10, 0,20);
+    }
+    else {blink = 0;
+      RS485WriteByte(10, 0,90);
+    }
+#endif 
 
 #ifdef ROBOTIS
   dxl.setGoalPosition(DXL_ID, map(channels[2],0,255,1024,3072));
@@ -570,6 +580,9 @@ else {
     for (int n = 0; n < NUM_ACTIONS; n++) {
       myActionList[n].update();
     }
+    #ifdef AMI
+    looking.update();
+    #endif
 #endif
 /////////// kick the time out checker! //////////
 #ifdef USE_CRSF
@@ -623,8 +636,8 @@ void setup1(){
   Joystick.begin(); 
 #endif
   // audio players
-#ifdef USE_AUDIO
-//audioInit(&player1, &player1port, &player2, &player2port);
+#ifdef LUMI
+audioInit(&player1, &player1port, &player2, &player2port);
 #endif
 }
 void loop1(){
@@ -686,14 +699,18 @@ void processScreen(int mode, int position) {
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
     #endif
     display.setCursor(70, 0);
-#if defined(ANIMATION_KEY) && defined(EXPO_KEY)
+#if defined(ANIMATION_KEY) 
     if (animation.isPlaying()){ 
       display.print (F("seq run"));
-    }
-    else if (expanimation.isPlaying()){
+    } 
+#endif
+#if defined(EXPO_KEY)
+    if (expanimation.isPlaying()){
       display.print (F("expo run"));
-    }
-    else display.print (F("no anim"));
+    }   
+#endif
+#ifdef AMI
+  if(looking.isPlaying())display.print (F("look"));
 #endif
     // print bars
     for (int n = 0; n < NUM_CHANNELS-2; n++) {
@@ -721,7 +738,7 @@ void processScreen(int mode, int position) {
 // it would be advisable to run this on the other core, were it not for the fact that that would conflict
 // with the USB joystick functionality. 
 #ifdef LUMI
-void processAudio(void){
+void processAudio(){
   static int isPlaying = 0;
       static int playingSample;
      //static int playTimer = 0; 
