@@ -1,5 +1,5 @@
 #pragma once
-#define DEBUG (1)
+//#define DEBUG (1)
 
 #include "Action.h"
 #include "ActionSequence.h"
@@ -192,12 +192,12 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define VOLUME_CHANNEL 4
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
-#define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
-#define DEFAULT_STEPS 967 
-#define EXPO_STEPS 985
+//#define ANIMATION_KEY (24) // set the correct animation key here. should be in last of 4 in order to NOT be recorded
+//#define DEFAULT_STEPS 967 
+//#define EXPO_STEPS 985
 
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 17
+#define NUM_ACTIONS 22
 
 // Declarations only – definitions live in config.cpp
 extern Action myActionList[NUM_ACTIONS];
@@ -299,6 +299,31 @@ extern Motor motorRight;
 #endif
 
 
+
+/*
+   Sample list: (ON SD CARD)
+     Sample 1: fluitje
+     Sample 2: fietfiew
+     Sample 3: kloinkskinkeldekikel
+     Sample 4: ratelratel
+     Sample 5
+     Sample 6:
+     Sample 7: arm uit
+     Sample 8: arm in
+     Sample 9: motorkap
+     Sample 10: achterklep omhoog
+     Sample 11: snurk
+     Sample 12: deur
+     Sample 13: fly up
+     Sample 14: fly down
+     Sample 15: grill
+     Sample 16: knipoog
+     Sample 17: rook
+     Sample 18: zwaailamp
+     Sample 19:
+     Sample 20
+
+*/
 
 
 // #pragma once

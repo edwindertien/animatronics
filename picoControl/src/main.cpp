@@ -141,6 +141,12 @@ Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif
 #endif
 
+#ifdef ANIMATION_KEY
+  #define ANIM_PLAYING()   animation.isPlaying()
+#else
+  #define ANIM_PLAYING()   false     // or true, depending on desired logic
+#endif
+
 
 // for triggers or tracks on DFRobot players. Note: they have to be installed
 // otherwise the initialisation will hang waiting for a response
@@ -473,7 +479,7 @@ else {
     #else 
      #ifdef AMI
      /// steer software
-      if ((channels[0] > 135 || channels[0] < 120) && mode==ACTIVE && !animation.isPlaying()) {
+      if ((channels[0] > 140 || channels[0] < 100) && mode==ACTIVE && !ANIM_PLAYING()) {
         RS485WriteByte(22, 1, map(channels[0], 0, 255, 255, 0));
       }
       else RS485WriteByte(22, 1, 127);
@@ -481,28 +487,24 @@ else {
       // note that the MAX_BACK and MAX_FRONT values defined earlier are the 'fast, turbo boost'
       // values. For normal operation the values are limited in the transmitter.
       if (channels[2]==192) {
-        if (channels[1] < 110 && mode==ACTIVE && !animation.isPlaying()) { // back
+        if (channels[1] < 110 && mode==ACTIVE && !ANIM_PLAYING()) { // back
           RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, FAST_SPEED, 0), 0, FAST_SPEED));
         }
-        else if (channels[1] > 135 && mode==ACTIVE && !animation.isPlaying()) {
+        else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
           RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, FAST_SPEED), 0, FAST_SPEED)); // forward
         }
-        else RS485WriteByte(18, 2, 0); // neutral
       }
-      else if(channels[2]==64){
-        if (channels[1] < 110 && mode==ACTIVE && !animation.isPlaying()) { // back
+      else if(channels[2]==128){
+        if (channels[1] < 110 && mode==ACTIVE && !ANIM_PLAYING()) { // back
           RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, SLOW_SPEED, 0), 0, SLOW_SPEED));
         }
-        else if (channels[1] > 135 && mode==ACTIVE && !animation.isPlaying()) {
+        else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
           RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, SLOW_SPEED), 0, SLOW_SPEED)); // forward
-        }
-        else RS485WriteByte(18, 2, 0); // neutral
+        }        
       }
-
+      else RS485WriteByte(18, 2, 0); // neutral
     RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));  // for the eyes
     RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));  // for the eyelids
-
-
     
      #endif
 
@@ -514,11 +516,12 @@ else {
     if(getRemoteSwitch('2') && !blink){
        blink = 1;
        player2port.listen();
-       player2.playFileNum(2);
-       RS485WriteByte(10, 0,20);
+       player2.playFileNum(16);
+       RS485WriteByte(10, 2, 0);  // was 20
     }
-    else {blink = 0;
-      RS485WriteByte(10, 0,90);
+    else if (!getRemoteSwitch('2') && blink==1) {
+      blink = 0;
+      RS485WriteByte(10, 2,90);
     }
 #endif 
 

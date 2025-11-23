@@ -58,6 +58,7 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1};  // values that need to
 #ifdef AMI
 #define USE_CRSF (1)
 #define DISPLAY_HEIGHT 32
+#define USE_MAX17048 (1)
 //#define USE_APC (1)
 //#define USE_DMX (1)
 //#define USE_USB_MIDI (1)

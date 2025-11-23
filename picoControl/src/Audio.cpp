@@ -21,11 +21,11 @@ void audioInit(DFRobot_DF1201S* player1,SoftwareSerial* player1port,DFRobot_DF12
   player1->setPrompt(false);
   player1->setPlayMode(player1->SINGLECYCLE);
   player1->setVol(0);
-  player1->playFileNum(/*File Number = */ 0);
+  player1->playFileNum(/*File Number = */ 1);
   delay(10);
   player1->pause();
   delay(10);
-  player1->playFileNum(/*File Number = */ 0);
+  player1->playFileNum(/*File Number = */ 1);
   delay(10);
    player1->pause();
   // transducer
@@ -34,12 +34,12 @@ void audioInit(DFRobot_DF1201S* player1,SoftwareSerial* player1port,DFRobot_DF12
   player2->setPlayMode(player2->SINGLE);
   player2->setPrompt(false);
   player2->setVol(0);
-  player2->playFileNum(/*File Number = */ 18);
+  player2->playFileNum(/*File Number = */ 1);
   player2->setVol(0);
   delay(10);
   player2->pause();
   delay(10);
-  player2->playFileNum(/*File Number = */ 18);
+  player2->playFileNum(/*File Number = */ 1);
   player2->setVol(0);
   delay(10);
    player2->pause();

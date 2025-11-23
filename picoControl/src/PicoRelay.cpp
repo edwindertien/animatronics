@@ -16,7 +16,6 @@ PicoRelay::PicoRelay()
 
 void PicoRelay::begin() {
 #if defined(USE_9685)
-Serial.println("9685");
     //pwm.begin();
     //pwm.setPWMFreq(1000);
   pwm.begin();
@@ -51,13 +50,8 @@ if(relaynr >= 0 && relaynr <16){
 #endif
 } 
 #if defined(EXTRA_RELAY)
-else if(relaynr >= 16 && relaynr <24 )
-{
+else if(relaynr >= 16 && relaynr <24 ){
   digitalWrite(relaypin[relaynr-16],state ? LOW : HIGH);
-  Serial.print(relaypin[relaynr-16]);
-  Serial.print(',');
-  Serial.println(state);
- 
 }
 #endif
 }
