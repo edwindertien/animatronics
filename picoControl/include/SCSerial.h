@@ -7,11 +7,13 @@
 #ifndef _SCSERIAL_H
 #define _SCSERIAL_H
 
-#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
-#else
-#include "WProgram.h"
-#endif
+
+#define TTL_SR 3
+// Meaning:
+#define TTL_TX  HIGH   // enable driver
+#define TTL_RX  LOW  // tri-state outputs
+//#define SEND_ONLY (1)
 
 #include "SCS.h"
 

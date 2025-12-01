@@ -8,9 +8,9 @@
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_SCHILDPAD (1)
 //#define SCUBA (1)
-#define AMI (1)
+//#define AMI (1)
 //#define LUMI (1)
-//#define DESKLIGHT (1)
+#define DESKLIGHT (1)
 //#define EXPERIMENT (1)
 
 #endif

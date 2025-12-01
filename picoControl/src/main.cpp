@@ -20,10 +20,14 @@
 #include <hardware/watchdog.h>
 #include "vehicle_select.h"
 #include "config.h"  // the specifics for the controlled robot or vehicle
+#ifdef AMI 
 bool blink;
+#endif
 // hardware on every board: the relay sockets
+#if defined(BOARD_V1) || defined(BOARD_V2)
 #include "PicoRelay.h"
 PicoRelay relay;
+#endif
 //////////////////////////////////////////////////////////////////////////////////////////////
 // the one and only global channel array containing the received values from RF
 // at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
@@ -50,7 +54,9 @@ SoftwareSerial DDSMport(18,19);
 #include <SCServo.h>
 #include <SoftwareSerial.h>
 SMS_STS st;
-SoftwareSerial STSport(18,19);
+//SoftwareSerial STSport(18,19);
+SoftwareSerial STSport(13,12);
+//SoftwareSerial STSport(10,11);
 #endif
 // the USB joystick bit used by LUMI 
 #ifdef USB_JOYSTICK
@@ -235,7 +241,10 @@ audioInit(&player1, &player1port, &player2, &player2port);
   unsigned int offset = pio_add_program(pio, &quadratureA_program);
   quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
 #endif
+
+#if defined(BOARD_V1) || defined(BOARD_V2)
 relay.begin();
+#endif
 ///////////////////
 #ifdef USE_MOTOR
 configureMotors();
@@ -304,6 +313,10 @@ configureMotors();
   pinMode(EXPO_KEY,INPUT_PULLUP);
   #endif
   watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
+
+  //digitalWrite(3,HIGH);
+  //digitalWrite(12,HIGH);
+
 }
 
 void loop() {
@@ -329,7 +342,7 @@ void loop() {
 // the 20 Hz main loop starts here!
 // -----------------------------------------------------------------------------
   static unsigned long looptime;
-  if (millis() > looptime + 49) {
+  if (millis() >= looptime + 20) {
     looptime = millis();
 
 #ifdef USE_CRSF
@@ -361,21 +374,21 @@ void loop() {
 
 #ifdef USE_STS
 // top yaw
-//st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // LED
-st.WritePosEx(20, map(channels[0],0,255,0,4095), map(channels[1],0,255,0,4095), 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+st.WritePosEx(20, map(channels[5],0,255,0,1048), map(channels[6],0,255,0,2048), 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // top pitch
-//st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // elbow pitch
-//st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
+st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
 // double joint pitch, joint 12 leads, joint 13 has been tuned to follow
 int centerpos = 1875;
 int value = map(channels[2],0,255,-625,625); 
 int offset = 300;
-//st.WritePosEx(13, centerpos - value + offset, 1000, 20);
-//st.WritePosEx(12, centerpos + value, 1000, 20);
+st.WritePosEx(13, centerpos - value + offset, 1000, 20);
+st.WritePosEx(12, centerpos + value, 1000, 20);
 // bottom yaw
-//st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
+st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
 #endif
 
 

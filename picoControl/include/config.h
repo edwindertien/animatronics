@@ -1,5 +1,5 @@
 #pragma once
-//#define DEBUG (1)
+#define DEBUG (1)
 
 #include "Action.h"
 #include "ActionSequence.h"
@@ -18,7 +18,7 @@
 // the Waveshare motors
 //#define USE_DDSM (1)
 #define USE_STS (1)
-#define BOARD_V2 (1)
+#define BOARD_V3 (1)
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
