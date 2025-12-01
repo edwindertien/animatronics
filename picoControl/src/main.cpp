@@ -16,10 +16,16 @@
 // https://arduino-pico.readthedocs.io/en/latest/index.html
 
 #include <Arduino.h> // the EarlPhilHower Arduino port of Pico SDK
-#include <Wire.h>    // the I2C communication lib for the display, PCA9685 etc
-#include <hardware/watchdog.h>
+//// The specifics for the controlled robot or vehicle
 #include "vehicle_select.h"
-#include "config.h"  // the specifics for the controlled robot or vehicle
+#include "config.h" 
+//////////////////////////////////////////////////////////////////////////////////////////////
+// the one and only global channel array containing the received values from RF
+// at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
+//                               0    1    2  3  4  5  6  7  8  9 10 11 12 13 14 15
+int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// for most of the exoot:        X    Y    nb kp vo sw sw sw sw
+//////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef AMI 
 bool blink;
 #endif
@@ -28,13 +34,6 @@ bool blink;
 #include "PicoRelay.h"
 PicoRelay relay;
 #endif
-//////////////////////////////////////////////////////////////////////////////////////////////
-// the one and only global channel array containing the received values from RF
-// at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
-//                               0    1    2  3  4  5  6  7  8  9 10 11 12 13 14 15
-int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-// for most of the exoot:        X    Y    nb kp vo sw sw sw sw
-//////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef USE_OLED
 // OLED display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
@@ -54,9 +53,9 @@ SoftwareSerial DDSMport(18,19);
 #include <SCServo.h>
 #include <SoftwareSerial.h>
 SMS_STS st;
-//SoftwareSerial STSport(18,19);
-SoftwareSerial STSport(13,12);
-//SoftwareSerial STSport(10,11);
+//SoftwareSerial STSport(18,19); // BOARD V2.0
+SoftwareSerial STSport(13,12);   // BOARD V3.0 builtin
+//SoftwareSerial STSport(10,11); // BOARD V3.0 on grove socket
 #endif
 // the USB joystick bit used by LUMI 
 #ifdef USB_JOYSTICK
