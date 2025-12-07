@@ -30,10 +30,10 @@ int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 bool blink;
 #endif
 // hardware on every board: the relay sockets
-#if defined(BOARD_V1) || defined(BOARD_V2)
+//#if defined(BOARD_V1) || defined(BOARD_V2)
 #include "PicoRelay.h"
 PicoRelay relay;
-#endif
+//#endif
 #ifdef USE_OLED
 // OLED display
 #include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
@@ -96,7 +96,10 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
   Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
   using namespace ControlTableItem;  //This namespace is required to use Control table item names
 #endif
-
+#ifdef EXPERIMENT
+#include "M5Unit8Servos.h"
+M5Unit8Servos servos;
+#endif
 #ifdef CAN_DRIVER
 // this bit is using a MCP2515 module on pins 16,18 and 19, with CS on 17 for SPI0
 // or 10 (SCK) 11 (MOSI) 12 (MISO)  for SPI1 (currently used on the V1.0 board)
@@ -221,7 +224,10 @@ void setup() {
   // st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
   // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
 #endif
-
+#ifdef EXPERIMENT
+  // Core: default GROVE is usually at Wire (SDA/SCL)
+  servos.begin(Wire, 0x25);
+#endif
 #ifdef USE_AUDIO
 audioInit(&player1, &player1port, &player2, &player2port);
 // lumi does this on core 2
@@ -248,6 +254,8 @@ relay.begin();
 #ifdef USE_MOTOR
 configureMotors();
 #endif
+//trommel.init();
+//trommel.setSpeed(200,0);
 // RS485 (dynamixel protocol) on Serial1:
 #ifdef USE_RS485
   RS485Init(RS485_BAUD, RS485_SR);
@@ -388,6 +396,25 @@ st.WritePosEx(13, centerpos - value + offset, 1000, 20);
 st.WritePosEx(12, centerpos + value, 1000, 20);
 // bottom yaw
 st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
+#endif
+
+#ifdef EXPERIMENT
+brakeTimer = BRAKE_TIMEOUT;
+ motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+ motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
+ if(channels[7]==252){
+servos.writeServoPulse(7, map(channels[2],0,255,2000,1300),true);
+ servos.writeServoPulse(0, map(channels[6],0,255,1000,2000),true);
+ }
+ else{
+  servos.detach(0);
+  servos.detach(7);
+ }
+
+ 
+ //motorLeft.setSpeed(map(channels[0],0,255,-127,127),brakeState);
+ //motorRight.setSpeed(map(channels[0],0,255,-127,127),brakeState);
+ trommel.setSpeed(map(channels[3],0,255,-255,255),brakeState);
 #endif
 
 
@@ -575,8 +602,8 @@ else {
       }
     }
       #ifdef USE_MOTOR
-      motorLeft.setSpeed(0,brakeState);
-      motorRight.setSpeed(0,brakeState);
+ //     motorLeft.setSpeed(0,brakeState);
+ //     motorRight.setSpeed(0,brakeState);
       #endif
       #ifdef AMI
       RS485WriteByte(18, 2, 0); // motor neutral

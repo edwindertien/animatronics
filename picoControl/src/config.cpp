@@ -2,7 +2,24 @@
 #include "config.h"
 #include "Audio.h"   // for player1, etc.
 #include "Motor.h"
-// Only build this when AMI is selected
+#ifdef EXPERIMENT
+/////// Electromen motor drivers (or other sigh-magnitude PWM drivers)
+Motor trommel(-1,15,14,-1);
+Motor motorRight(19, 22, 26, -1);   // 
+Motor motorLeft(21, 18, 20, -1);  //
+
+
+void configureMotors(){
+  motorLeft.init();
+  motorRight.init();
+  trommel.init();
+}
+
+#endif
+
+
+
+
 #ifdef AMI
 // IMPORTANT: this is now the single, real definition of myActionList
 Action myActionList[NUM_ACTIONS] = {

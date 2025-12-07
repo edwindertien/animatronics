@@ -30,16 +30,28 @@ const int saveValues[NUM_CHANNELS] = { 127, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0
 //#define USE_DDSM (1)
 //#define USE_STS (1)
 //#define ROBOTIS (1)
-#define CAN_DRIVER (1)
-#define CUBEMARS (1)
-#define BOARD_V1 (1)
-#define USE_RS485 (1)
-#define RS485_BAUD 57600
+//#define CAN_DRIVER (1)
+//#define CUBEMARS (1)
+#define BOARD_V3 (1)
+//#define USE_RS485 (1)
+//#define RS485_BAUD 57600
+#define USE_MOTOR (1)
+//#define USE_CROSS_MIXING (1)
+#define USE_SPEEDSCALING (1)
+#define LOW_SPEED 255  // was 60 used for scaling in the cross-mix function
+//#define HIGH_SPEED 255 // was 90  
+// when no scaling used:
+//#define MAX_SPEED 255
+#define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
+void configureMotors();
+extern Motor motorLeft;
+extern Motor motorRight;
+extern Motor trommel;
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
 #define NUM_CHANNELS 16
-const int saveValues[NUM_CHANNELS] = { 127, 0, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #endif
 
 #ifdef ANIMAL_LOVE
