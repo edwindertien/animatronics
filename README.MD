@@ -53,3 +53,27 @@ Configuration software is necessary, but only available for Windows (so a separa
 
 ### Dynamixel X430 series
 like the 'old' MX-64, MX-28 and others, this protocol (dynamixel) is included through the official Robotis library through github (in the platformio.ino: `robotis-git/Dynamixel2Arduino@^0.8.1`)
+
+
+
+## SETUPS
+### Desklight
+
+Desklight uses picocontrol3 and picoservo2. For the lamp head a 37 hex neopixel pcb is used, which is programmed using these [sources](/../PicoST3215LED/). 
+
+The lamp consists of a [waveshare arm](https://www.waveshare.com/wiki/RoArm-M2-S). The origignal servo configuration is kept, however, one new servo with ID 16 is added to the top, so upon first use the code is executed
+```cpp
+int ID_ChangeFrom = 1;
+int ID_Changeto   = 16;
+st.unLockEprom(ID_ChangeFrom);//unlock EPROM-SAFE
+st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
+st.LockEprom(ID_Changeto);//EPROM-SAFE locked
+```
+I'm not sure if data feedback is actually possible with the current hardware implementation, it looks like the 74AC125 is not switching back fast enough for datafeedback. In the current edition the timeout at transmitter side has been reduced, so the control unit does not wait for feedback/update. The bus servo adapter (A) V1.1 by waveshare however does work with datafeeddback from the servos, however, the self-built head light driver does not work with that.  
+
+
+### Washingmachine (still 'Experimental')
+
+### AMI
+
+//etc

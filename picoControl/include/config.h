@@ -20,6 +20,7 @@
 #define USE_STS (1)
 #define BOARD_V3 (1)
 #define USE_OLED (1)
+#define OLED_ROTATE (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
 #define NUM_CHANNELS 16

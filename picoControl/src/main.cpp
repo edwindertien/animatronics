@@ -224,10 +224,7 @@ void setup() {
   // st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
   // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
 #endif
-#ifdef EXPERIMENT
-  // Core: default GROVE is usually at Wire (SDA/SCL)
-  servos.begin(Wire, 0x25);
-#endif
+
 #ifdef USE_AUDIO
 audioInit(&player1, &player1port, &player2, &player2port);
 // lumi does this on core 2
@@ -319,6 +316,12 @@ configureMotors();
   #ifdef EXPO_KEY
   pinMode(EXPO_KEY,INPUT_PULLUP);
   #endif
+
+  #ifdef EXPERIMENT
+  delay(500);
+  // Core: default GROVE is usually at Wire (SDA/SCL)
+  servos.begin(Wire, 0x25);
+#endif
   watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
 
   //digitalWrite(3,HIGH);
@@ -725,6 +728,9 @@ void ProcessRadioData(int ID, int dataLength, unsigned char *Data) {
 void processScreen(int mode, int position) {
   static int menu = 1;
   display.clearDisplay();
+  #ifdef OLED_ROTATE
+  display.setRotation(2);
+  #endif
   if (menu == 0) {
     display.fillRect(124, 0, 4, position, SSD1306_WHITE);
     display.setTextSize(1);               // Normal 1:1 pixel scale
