@@ -10,7 +10,9 @@
 //#define SCUBA (1)
 //#define AMI (1)
 //#define LUMI (1)
-#define DESKLIGHT (1)
+//#define DESKLIGHT (1)
 //#define EXPERIMENT (1)
+//#define WASHMACHINE (1)
+#define STOFZUIGER (1)
 
 #endif

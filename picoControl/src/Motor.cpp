@@ -12,6 +12,7 @@ Motor::Motor(int pinA, int pinB, int pwmPin, int brakeRelay) {
 }
 
 void Motor::init() {
+  analogWriteFreq(16000);
   if(pinA >= 0)pinMode(pinA, OUTPUT);
   if(pinB >= 0)pinMode(pinB, OUTPUT);
   if(pwmPin >= 0)pinMode(pwmPin, OUTPUT);

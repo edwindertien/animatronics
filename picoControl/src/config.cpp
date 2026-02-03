@@ -2,22 +2,28 @@
 #include "config.h"
 #include "Audio.h"   // for player1, etc.
 #include "Motor.h"
-#ifdef EXPERIMENT
+#ifdef WASHMACHINE
 /////// Electromen motor drivers (or other sigh-magnitude PWM drivers)
 Motor trommel(-1,15,14,-1);
 Motor motorRight(19, 22, 26, -1);   // 
 Motor motorLeft(21, 18, 20, -1);  //
-
-
 void configureMotors(){
   motorLeft.init();
   motorRight.init();
   trommel.init();
 }
-
 #endif
 
-
+#ifdef STOFZUIGER
+/////// Electromen motor drivers (or other sigh-magnitude PWM drivers)
+// board 3.5 !!
+Motor motorRight(18, 19, 20, -1);   // 
+Motor motorLeft(21, 22, 26, -1);  //
+void configureMotors(){
+  motorLeft.init();
+  motorRight.init();
+}
+#endif
 
 
 #ifdef AMI

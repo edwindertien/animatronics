@@ -96,7 +96,7 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
   Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
   using namespace ControlTableItem;  //This namespace is required to use Control table item names
 #endif
-#ifdef EXPERIMENT
+#ifdef WASHMACHINE
 #include "M5Unit8Servos.h"
 M5Unit8Servos servos;
 #endif
@@ -201,8 +201,16 @@ CRSF crsf;
 //////////////////////////////////////////////////////////////////////////////////////////
 // and here the program starts
 //////////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef WIFICONTROL
+#include "WIFIremote.h"
+WIFIremote remote;
+#endif
+
+
 void setup() {
   Serial.begin(115200);
+  //while(!Serial){};
   pinMode(LED_BUILTIN, OUTPUT);
 ////////////////////////////////
 #ifdef USE_DDSM
@@ -317,12 +325,44 @@ configureMotors();
   pinMode(EXPO_KEY,INPUT_PULLUP);
   #endif
 
-  #ifdef EXPERIMENT
+  #ifdef WASHMACHINE
   delay(500);
   // Core: default GROVE is usually at Wire (SDA/SCL)
   servos.begin(Wire, 0x25);
 #endif
-  watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
+
+  #ifdef WIFICONTROL
+  WIFIremote::Config cfg;
+  cfg.ssid = "VacuumBot";
+  cfg.pass = "12345678";
+
+  // Important: fixed IP so your sticker expectations never change
+  cfg.apIP = IPAddress(192,168,42,1);
+  cfg.apGateway = IPAddress(192,168,42,1);
+  cfg.apMask = IPAddress(255,255,255,0);
+
+  cfg.lockControlPage = true;     // 2nd user gets "please await"
+  cfg.ownerLeaseMs = 10000;       // free if owner stops sending /api for 10s
+  cfg.motorIdleMs = 30000;
+  cfg.disconnectIdleMs = 120000;
+
+  remote.begin(cfg);
+
+  Serial.print("AP IP: "); Serial.println(remote.ip());
+  Serial.println("Sticker QR payload:");
+  Serial.println("WIFI:T:WPA;S:VacuumBot;P:12345678;H:false;;");
+
+  pinMode(14,OUTPUT);
+  pinMode(15,OUTPUT);
+  digitalWrite(14,HIGH);
+  pinMode(10,OUTPUT);
+  pinMode(11,OUTPUT);
+  digitalWrite(14,HIGH);
+
+  #endif
+
+
+  //watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
 
   //digitalWrite(3,HIGH);
   //digitalWrite(12,HIGH);
@@ -351,9 +391,12 @@ void loop() {
 // -----------------------------------------------------------------------------
 // the 20 Hz main loop starts here!
 // -----------------------------------------------------------------------------
+  #ifdef WIFICONTROL
+  remote.loop();
+  #endif
   static unsigned long looptime;
-  if (millis() >= looptime + 20) {
-    looptime = millis();
+if (millis() >= looptime + 19) {
+ looptime = millis();
 
 #ifdef USE_CRSF
     crsf.GetCrsfPacket();
@@ -401,7 +444,7 @@ st.WritePosEx(12, centerpos + value, 1000, 20);
 st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
 #endif
 
-#ifdef EXPERIMENT
+#ifdef WASMACHINE
 brakeTimer = BRAKE_TIMEOUT;
  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
@@ -413,12 +456,35 @@ servos.writeServoPulse(7, map(channels[2],0,255,2000,1300),true);
   servos.detach(0);
   servos.detach(7);
  }
-
- 
  //motorLeft.setSpeed(map(channels[0],0,255,-127,127),brakeState);
  //motorRight.setSpeed(map(channels[0],0,255,-127,127),brakeState);
  trommel.setSpeed(map(channels[3],0,255,-255,255),brakeState);
 #endif
+
+#ifdef STOFZUIGER
+if (remote.ownerId() != -1){
+brakeTimer = BRAKE_TIMEOUT;
+ motorLeft.setSpeed(remote.left(),brakeState);
+ motorRight.setSpeed(remote.right(),brakeState); 
+ if(remote.wideBrush())digitalWrite(14,HIGH); else digitalWrite(14,LOW);
+ if(remote.cornerBrush())digitalWrite(15,LOW); else digitalWrite(15,HIGH);
+  if(remote.blower())digitalWrite(10,HIGH); else digitalWrite(10,LOW);
+ if(remote.blower())digitalWrite(11,LOW); else digitalWrite(11,HIGH);
+}
+else{
+ brakeTimer = BRAKE_TIMEOUT;
+//  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+//  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
+ motorLeft.setSpeed(0,brakeState);
+ motorRight.setSpeed(0,brakeState); 
+ digitalWrite(14,LOW);
+ digitalWrite(15,HIGH);
+ digitalWrite(10,LOW);
+ digitalWrite(11,HIGH);
+
+}
+ #endif
+
 
 
 #ifdef LUMI
@@ -739,10 +805,38 @@ void processScreen(int mode, int position) {
     display.setTextSize(1);  // Draw 2X-scale text
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(0, 0);  // Start at top-left corner
-    if (mode == ACTIVE) display.println(F("ACTIVE"));
+    if (mode == ACTIVE) display.println(F("ACTV"));
     if (mode == IDLE) display.println(F("IDLE"));
     // print keypad char
-    display.setCursor(50, 0);
+        // print bars
+    for (int n = 0; n < NUM_CHANNELS-2; n++) {
+      display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
+    }
+    display.fillRect(124, 0, 4, position, SSD1306_WHITE);
+    display.setCursor(32, 0);
+#ifdef WIFICONTROL
+   display.fillRect(0 * 6, 32 - remote.right() / 16, 4, 32, SSD1306_INVERSE);
+   display.fillRect(1 * 6, 32 - remote.left() / 16, 4, 32, SSD1306_INVERSE);
+   display.fillRect(2 * 6, 32 - remote.wideBrush()*32, 4, 32, SSD1306_INVERSE);
+   display.fillRect(3 * 6, 32 - remote.cornerBrush()*32, 4, 32, SSD1306_INVERSE);
+   display.fillRect(4 * 6, 32 - remote.blower()*32, 4, 32, SSD1306_INVERSE);
+    display.print(remote.ip());
+    display.setCursor(32, 8);
+    if (remote.ownerId() == -1) {
+  display.print("no connection");
+} else {
+  IPAddress ip = remote.ownerIP();
+  display.print(ip[0]); display.print(".");
+  display.print(ip[1]); display.print(".");
+  display.print(ip[2]); display.print(".");
+  display.print(ip[3]);
+}
+display.setCursor(32, 16);
+
+    if(remote.ownerId()!=-1){display.print(F("has connected"));}
+    display.setCursor(32, 24);
+    if(remote.inUse())display.print(F("getting data"));
+#endif
     #ifdef KEYPAD_CHANNEL
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
     #endif
@@ -760,11 +854,7 @@ void processScreen(int mode, int position) {
 #ifdef AMI
   if(looking.isPlaying())display.print (F("look"));
 #endif
-    // print bars
-    for (int n = 0; n < NUM_CHANNELS-2; n++) {
-      display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
-    }
-    display.fillRect(124, 0, 4, position, SSD1306_WHITE);
+
   } else if (menu == 2) {
     display.setCursor(0, 0);  // Start at top-left corner
     display.setTextSize(1);   // Draw 2X-scale text
