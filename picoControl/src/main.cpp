@@ -202,11 +202,6 @@ CRSF crsf;
 // and here the program starts
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#ifdef WIFICONTROL
-#include "WIFIremote.h"
-WIFIremote remote;
-#endif
-
 
 void setup() {
   Serial.begin(115200);
@@ -235,6 +230,7 @@ void setup() {
 
 #ifdef USE_AUDIO
 audioInit(&player1, &player1port, &player2, &player2port);
+
 // lumi does this on core 2
 #endif
 
@@ -331,41 +327,8 @@ configureMotors();
   servos.begin(Wire, 0x25);
 #endif
 
-  #ifdef WIFICONTROL
-  WIFIremote::Config cfg;
-  cfg.ssid = "VacuumBot";
-  cfg.pass = "12345678";
-
-  // Important: fixed IP so your sticker expectations never change
-  cfg.apIP = IPAddress(192,168,42,1);
-  cfg.apGateway = IPAddress(192,168,42,1);
-  cfg.apMask = IPAddress(255,255,255,0);
-
-  cfg.lockControlPage = true;     // 2nd user gets "please await"
-  cfg.ownerLeaseMs = 10000;       // free if owner stops sending /api for 10s
-  cfg.motorIdleMs = 30000;
-  cfg.disconnectIdleMs = 120000;
-
-  remote.begin(cfg);
-
-  Serial.print("AP IP: "); Serial.println(remote.ip());
-  Serial.println("Sticker QR payload:");
-  Serial.println("WIFI:T:WPA;S:VacuumBot;P:12345678;H:false;;");
-
-  pinMode(14,OUTPUT);
-  pinMode(15,OUTPUT);
-  digitalWrite(14,HIGH);
-  pinMode(10,OUTPUT);
-  pinMode(11,OUTPUT);
-  digitalWrite(14,HIGH);
-
-  #endif
-
 
   //watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
-
-  //digitalWrite(3,HIGH);
-  //digitalWrite(12,HIGH);
 
 }
 
@@ -391,11 +354,8 @@ void loop() {
 // -----------------------------------------------------------------------------
 // the 20 Hz main loop starts here!
 // -----------------------------------------------------------------------------
-  #ifdef WIFICONTROL
-  remote.loop();
-  #endif
-  static unsigned long looptime;
-if (millis() >= looptime + 19) {
+static unsigned long looptime;
+if (millis() >= looptime + 49) {
  looptime = millis();
 
 #ifdef USE_CRSF
@@ -461,32 +421,6 @@ servos.writeServoPulse(7, map(channels[2],0,255,2000,1300),true);
  trommel.setSpeed(map(channels[3],0,255,-255,255),brakeState);
 #endif
 
-#ifdef STOFZUIGER
-if (remote.ownerId() != -1){
-brakeTimer = BRAKE_TIMEOUT;
- motorLeft.setSpeed(remote.left(),brakeState);
- motorRight.setSpeed(remote.right(),brakeState); 
- if(remote.wideBrush())digitalWrite(14,HIGH); else digitalWrite(14,LOW);
- if(remote.cornerBrush())digitalWrite(15,LOW); else digitalWrite(15,HIGH);
-  if(remote.blower())digitalWrite(10,HIGH); else digitalWrite(10,LOW);
- if(remote.blower())digitalWrite(11,LOW); else digitalWrite(11,HIGH);
-}
-else{
- brakeTimer = BRAKE_TIMEOUT;
-//  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
-//  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
- motorLeft.setSpeed(0,brakeState);
- motorRight.setSpeed(0,brakeState); 
- digitalWrite(14,LOW);
- digitalWrite(15,HIGH);
- digitalWrite(10,LOW);
- digitalWrite(11,HIGH);
-
-}
- #endif
-
-
-
 #ifdef LUMI
     // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
     // TODO (channel 12 as switch point to check the relays)
@@ -497,14 +431,15 @@ else{
 #endif
 // THe DC motors are controlled with sign-magnitude (PWM functions in the motor class)
 // only when there is no animation playing (no driving while animating)
-#if defined(USE_MOTOR) && defined(ANIMATION_KEY) && defined(EXPO_KEY)
+#if defined(USE_MOTOR) 
+//#if defined(USE_MOTOR) && defined(ANIMATION_KEY) && defined(EXPO_KEY)
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)
 if(!animation.isPlaying() && !expanimation.isPlaying()){
-  #ifdef USE_SPEEDSCALING
-  #ifdef USE_KEYPAD_SPEED
-  if(getRemoteSwitch('#')){
   #else
+  if(true){
+    #endif
+  #ifdef USE_SPEEDSCALING
   if(channels[2]==192){
-  #endif
   brakeTimer = BRAKE_TIMEOUT;
   motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
   motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
@@ -585,7 +520,7 @@ else {
     }
     RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
     #else 
-     #ifdef AMI
+     #if defined(AMI) || defined(SCUBA) 
      /// steer software
       if ((channels[0] > 140 || channels[0] < 100) && mode==ACTIVE && !ANIM_PLAYING()) {
         RS485WriteByte(22, 1, map(channels[0], 0, 255, 255, 0));
@@ -601,6 +536,7 @@ else {
         else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
           RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, FAST_SPEED), 0, FAST_SPEED)); // forward
         }
+        else RS485WriteByte(18, 2, 0); // neutral
       }
       else if(channels[2]==128){
         if (channels[1] < 110 && mode==ACTIVE && !ANIM_PLAYING()) { // back
@@ -608,12 +544,15 @@ else {
         }
         else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
           RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, SLOW_SPEED), 0, SLOW_SPEED)); // forward
-        }        
+        }
+        else RS485WriteByte(18, 2, 0); // neutral       
       }
       else RS485WriteByte(18, 2, 0); // neutral
+
+      #if defined(AMI)
     RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));  // for the eyes
     RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));  // for the eyelids
-    
+      #endif
      #endif
 
     #endif
@@ -621,15 +560,17 @@ else {
 #endif
 
 #ifdef AMI
-    if(getRemoteSwitch('2') && !blink){
+    if(getRemoteSwitch('#') && blink==0){
        blink = 1;
        player2port.listen();
        player2.playFileNum(16);
        RS485WriteByte(10, 2, 0);  // was 20
+       delay(1);
     }
-    else if (!getRemoteSwitch('2') && blink==1) {
+    else if (!getRemoteSwitch('#') && blink==1) {
       blink = 0;
       RS485WriteByte(10, 2,90);
+      delay(1);
     }
 #endif 
 
@@ -674,7 +615,7 @@ else {
  //     motorLeft.setSpeed(0,brakeState);
  //     motorRight.setSpeed(0,brakeState);
       #endif
-      #ifdef AMI
+      #if defined(AMI) || defined(SCUBA)
       RS485WriteByte(18, 2, 0); // motor neutral
       RS485WriteByte(22,1,127); // steer neutral
       #endif
@@ -693,6 +634,9 @@ else {
     }
     #ifdef AMI
     looking.update();
+    #endif
+    #ifdef SCUBA
+    jaws.update();
     #endif
 #endif
 /////////// kick the time out checker! //////////
@@ -853,6 +797,9 @@ display.setCursor(32, 16);
 #endif
 #ifdef AMI
   if(looking.isPlaying())display.print (F("look"));
+#endif
+#ifdef SCUBA
+  if(jaws.isPlaying())display.print (F("jaws"));
 #endif
 
   } else if (menu == 2) {

@@ -32,6 +32,7 @@ bool ActionSequence::addEvent(uint32_t timestampMs, EventType type, Action* acti
 }
 
 void ActionSequence::startInternal(uint32_t nowMs) {
+  //Serial.println("action started");
   playing_ = true;
   startTimeMs_ = nowMs;
   nextEventIndex_ = 0;
@@ -39,6 +40,7 @@ void ActionSequence::startInternal(uint32_t nowMs) {
 
 void ActionSequence::stopInternal() {
   playing_ = false;
+  //Serial.println("action stopped");
   // Ensure everything in this sequence is stopped
   for (uint8_t i = 0; i < eventCount_; ++i) {
     if (events_[i].action) {
@@ -57,7 +59,7 @@ void ActionSequence::stop() {
 
 void ActionSequence::update() {
   uint32_t nowMs = millis();
-
+  
   // -------- 1) Handle remote button the same way as in Action::update() -----
   bool buttonPressed = getRemoteSwitch(button_);
 
@@ -98,6 +100,7 @@ void ActionSequence::update() {
          events_[nextEventIndex_].timestampMs <= elapsed)
   {
     ActionEvent &ev = events_[nextEventIndex_];
+    Serial.println("ACTION");
 
     if (ev.action != nullptr) {
       if (ev.type == EVENT_START) {
@@ -108,6 +111,7 @@ void ActionSequence::update() {
     }
 
     nextEventIndex_++;
+    Serial.println(nextEventIndex_);
   }
 
   // -------- 4) End of sequence? Handle one-shot vs loop ---------------------

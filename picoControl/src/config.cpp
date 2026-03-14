@@ -25,6 +25,69 @@ void configureMotors(){
 }
 #endif
 
+#ifdef SCUBA
+// IMPORTANT: this is now the single, real definition of myActionList
+Action myActionList[NUM_ACTIONS] = {
+  Action('5',  -1, DIRECT, nullptr, 100, 1, &player1), // track 1
+  Action('8',  -1, DIRECT, nullptr, 100, 2, &player1), // track 2
+  Action(0,  14, DIRECT), // hoofd
+  Action(2,  1, DIRECT), // snorkel
+  Action(3,  2, DIRECT), // snorkel
+
+  Action(5,  3, DIRECT), // spuit
+  Action(6,  4, DIRECT), // motorkap
+  Action(7,  5, DIRECT), // motorkap
+  Action('1',  10, DIRECT), // toeter
+  Action('3',  7, DIRECT), // toeter
+
+  Action('#',  8, DIRECT), // bellen
+  Action('0',  9, DIRECT), // 
+  Action('*',  15, DIRECT) // rook
+  // Action(6,  -1, DIRECT, nullptr, 100), // track 3
+  // Action(0,  11, DIRECT, nullptr, 100),// zwaailicht
+  // Action(16, 4,  DIRECT, nullptr, 100),// achterklep open
+  
+  // Action(17, 5,  DIRECT),                            // achterklep dicht
+  // Action(13, 0,  DIRECT, nullptr, 100), // arm uit 
+  // Action(12, 1,  DIRECT, nullptr, 100), // arm in
+  // Action(10, 22, DIRECT, nullptr, 100), // motorkap open
+  // Action(11, 23, DIRECT),                            // motorkap dicht
+  
+  // Action(14, 14, DIRECT, nullptr, 100),// lift up
+  // Action(15, 21, DIRECT, nullptr, 100),// elevator release
+  // Action('0',20, DIRECT),                            // elevator release back
+  // Action(8,  15, DIRECT, nullptr, 100),// vleugeldeur
+  // Action(9,  12, DIRECT),
+  
+  // Action('-',2,  DIRECT),                             // check-> hoofd  en 3?
+  // Action('-',8,  TRIGGER, nullptr, 100),// check-> grill
+  // Action('1',19, DIRECT),                             // toet
+  // Action('3',16, DIRECT, nullptr, 100), // rook
+  // Action('4',18, DIRECT),                             // toet2
+  
+  // Action('6',17, DIRECT, nullptr, 100), // bellen
+  // Action('-',13, DIRECT),
+  // 3 hoofd oud? 
+
+  // (commented-out alternatives kept as reference in your original)
+};
+
+// And this is the single, real definition of the sequence
+ ActionSequence jaws(4, DIRECT, false);   // button '5', toggle, loop
+
+// // Sequence wiring for SCUBA
+ void configureSequences() {
+    jaws.addEvent(0,   EVENT_START, &myActionList[12]); // rook
+    jaws.addEvent(1,   EVENT_START, &myActionList[1]); // jaws
+    jaws.addEvent(500, EVENT_STOP,  &myActionList[12]); // rook stop
+    jaws.addEvent(501, EVENT_START,  &myActionList[6]); // motorkap
+    jaws.addEvent(601, EVENT_STOP,  &myActionList[6]); // motorkap
+    jaws.addEvent(809, EVENT_START,  &myActionList[7]); // motorkap dicht
+    jaws.addEvent(909, EVENT_STOP,  &myActionList[7]); // motorkap dicht
+    jaws.addEvent(1000,EVENT_STOP, &myActionList[1]); // jaws
+}
+#endif // SCUBA
+
 
 #ifdef AMI
 // IMPORTANT: this is now the single, real definition of myActionList
@@ -33,24 +96,24 @@ Action myActionList[NUM_ACTIONS] = {
   Action(4,  -1, DIRECT, nullptr, 100, 2, &player1), // track 2
   Action(6,  -1, DIRECT, nullptr, 100, 4, &player1), // track 3
   Action(0,  11, DIRECT, nullptr, 100, 18, &player2),// zwaailicht
-  Action(16, 4,  DIRECT, nullptr, 100, 10, &player2),// achterklep open
+  Action(10, 4,  DIRECT, nullptr, 100, 10, &player2),// achterklep open
   
-  Action(17, 5,  DIRECT),                            // achterklep dicht
-  Action(13, 0,  DIRECT, nullptr, 100, 8, &player2), // arm uit 
-  Action(12, 1,  DIRECT, nullptr, 100, 7, &player2), // arm in
-  Action(10, 22, DIRECT, nullptr, 100, 9, &player2), // motorkap open
-  Action(11, 23, DIRECT),                            // motorkap dicht
+  Action(11, 5,  DIRECT),                            // achterklep dicht
+  Action(16, 0,  DIRECT, nullptr, 100, 8, &player2), // arm uit 
+  Action(17, 1,  DIRECT, nullptr, 100, 7, &player2), // arm in
+  Action(12, 22, DIRECT, nullptr, 100, 9, &player2), // motorkap open
+  Action(13, 23, DIRECT),                            // motorkap dicht
   
   Action(14, 14, DIRECT, nullptr, 100, 13, &player2),// lift up
   Action(15, 21, DIRECT, nullptr, 100, 14, &player2),// elevator release
-  Action('0',20, DIRECT),                            // elevator release back
+  Action('1',20, DIRECT),                            // elevator release back
   Action(8,  15, DIRECT, nullptr, 100, 12, &player2),// vleugeldeur
   Action(9,  12, DIRECT),
   
   Action('-',2,  DIRECT),                             // check-> hoofd  en 3?
   Action('-',8,  TRIGGER, nullptr, 100, 15, &player2),// check-> grill
-  Action('1',19, DIRECT),                             // toet
-  Action('3',16, DIRECT, nullptr, 100, 17, &player2), // rook
+  Action('3',19, DIRECT),                             // toet
+  Action('*',16, DIRECT, nullptr, 100, 17, &player2), // rook
   Action('4',18, DIRECT),                             // toet2
   
   Action('6',17, DIRECT, nullptr, 100, 10, &player2), // bellen

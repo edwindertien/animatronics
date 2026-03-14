@@ -1,0 +1,957 @@
+// this controlbox can use multiple radio systems.
+// on th RF spot there is place for an
+// APC220. using RX and Tx
+// link RF-set to gnd and write 'RD' or 'WR'
+// with a specific configuration string
+// for BetaFPV/ELRS/CrossFire you can send and
+// receive a CRSF string. make sure remote and receiver
+// are paired (see betafpv manual), flashed with 
+// firmware v3.4.3 or up (same for Tx and Tx). Set 
+// packet rate to 333 (or100), switches to 16/2 ch and telemetry to 1:128
+// 
+// TODO: for the animaltroniek the air or driving edition have not been 
+// added yet.
+//
+// resources:
+// https://arduino-pico.readthedocs.io/en/latest/index.html
+
+#include <Arduino.h> // the EarlPhilHower Arduino port of Pico SDK
+//// The specifics for the controlled robot or vehicle
+#include "vehicle_select.h"
+#include "config.h" 
+//////////////////////////////////////////////////////////////////////////////////////////////
+// the one and only global channel array containing the received values from RF
+// at present 14 of the 16 channels are used. Enter the save values (FAILSAFE) in these arrays
+//                               0    1    2  3  4  5  6  7  8  9 10 11 12 13 14 15
+int channels[NUM_CHANNELS] =   { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+// for most of the exoot:        X    Y    nb kp vo sw sw sw sw
+//////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef AMI 
+bool blink;
+#endif
+// hardware on every board: the relay sockets
+//#if defined(BOARD_V1) || defined(BOARD_V2)
+#include "PicoRelay.h"
+PicoRelay relay;
+//#endif
+#ifdef USE_OLED
+// OLED display
+#include <Adafruit_GFX.h>      // graphics, drawing functions (sprites, lines)
+#include <Adafruit_SSD1306.h>  // display driver
+Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
+void processScreen(int mode, int position);  // look at the bottom,
+#endif
+/////////// waveshare motor ///////////////
+#ifdef USE_DDSM
+#include <ddsm_ctrl.h>
+#include <SoftwareSerial.h>
+DDSM_CTRL dc;
+SoftwareSerial DDSMport(18,19);
+#endif
+////////// waveshare ST3215 servo /////////
+#ifdef USE_STS
+#include <SCServo.h>
+#include <SoftwareSerial.h>
+SMS_STS st;
+//SoftwareSerial STSport(18,19); // BOARD V2.0
+SoftwareSerial STSport(13,12);   // BOARD V3.0 builtin
+//SoftwareSerial STSport(10,11); // BOARD V3.0 on grove socket
+#endif
+// the USB joystick bit used by LUMI 
+#ifdef USB_JOYSTICK
+#include <Joystick.h>
+#endif
+//////// incremental encoder, might be populated on board
+#ifdef USE_ENCODER
+#include <hardware/pio.h>
+#include "quadrature.pio.h"
+#ifdef BOARD_V1
+#define QUADRATURE_A_PIN 20
+#define QUADRATURE_B_PIN 21
+#define PUSH_BUTTON 22
+#else 
+#define QUADRATURE_A_PIN 13
+#define QUADRATURE_B_PIN 14
+#define PUSH_BUTTON 15
+#endif
+PIO pio = pio0;
+unsigned int sm = pio_claim_unused_sm(pio, true);
+#endif
+//// RS485, as passthrough of radio data, or as separate port
+#ifdef USE_RS485
+// for communication with motor driver and other externals
+#include "RS485Reader.h"
+#define FAST_SPEED 200
+#define SLOW_SPEED 150
+#endif
+// RS485 uses the same serial port and MAX485 driver as the Robotis Dynamixel. 
+// They cannot be used in parallel
+#ifdef ROBOTIS
+  #include <Dynamixel2Arduino.h>
+  #define DXL_SERIAL   Serial1
+  #define DEBUG_SERIAL Serial
+  const int DXL_DIR_PIN = 2; // DYNAMIXEL RS485 DIR PIN
+  const uint8_t DXL_ID = 1;
+  const float DXL_PROTOCOL_VERSION = 2.0;
+  Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
+  using namespace ControlTableItem;  //This namespace is required to use Control table item names
+#endif
+#ifdef WASHMACHINE
+#include "M5Unit8Servos.h"
+M5Unit8Servos servos;
+#endif
+#ifdef CAN_DRIVER
+// this bit is using a MCP2515 module on pins 16,18 and 19, with CS on 17 for SPI0
+// or 10 (SCK) 11 (MOSI) 12 (MISO)  for SPI1 (currently used on the V1.0 board)
+// note that the MCP needs 3.3V but the driver 5.0. on a non-joyit module
+// this means cutting the supply line and adding a wire for 5V
+#include "mcp_can.h"
+#include "TMotor_ServoConnection.h"
+// define constants
+#define CAN0_INT 2 // set interrupt pin for incoming CAN messages
+#endif
+
+#ifdef CUBEMARS
+// init global vars. The cubemars has to be configured (calibrated)
+// using the 'upper' tool on Windows and FTDI (3.3V) cable
+#define ID_MOTOR_1 104
+MCP_CAN CAN0(&SPI1,17); // set SPI select pin
+TMotor_ServoConnection servo_conn(CAN0);  // create CAN Servo Connection object
+#endif
+
+// running modes
+#define IDLE 0
+#define ACTIVE 1
+#define PLAYBACK 2
+
+//// Action libray to select button press actions (sound + relay trigger)
+#include "Action.h"  // needs audio and the available motor's to link actions to.
+
+
+/// key to play standalone animation. Keeps playing when Remote is turned off
+#ifdef ANIMATION_KEY
+#include "Animation.h"
+Animation animation(defaultAnimation, DEFAULT_STEPS);
+#ifdef EXPO_KEY
+Animation expanimation(expoAnimation, EXPO_STEPS);
+#endif
+#ifdef AMI
+#include "Track-animalove.h"
+#endif
+#ifdef ANIMAL_LOVE
+#include "Track-animalove.h"
+#endif
+#ifdef ANIMALTRONIEK_KREEFT
+#include "Track-kreeft.h"
+#endif
+#ifdef ANIMALTRONIEK_VIS
+#include "Track-vis.h"
+#endif
+#endif
+
+#ifdef ANIMATION_KEY
+  #define ANIM_PLAYING()   animation.isPlaying()
+#else
+  #define ANIM_PLAYING()   false     // or true, depending on desired logic
+#endif
+
+
+// for triggers or tracks on DFRobot players. Note: they have to be installed
+// otherwise the initialisation will hang waiting for a response
+#ifdef USE_AUDIO
+DFRobot_DF1201S player1,player2;
+SoftwareSerial player1port(7, 6);    
+SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
+#ifdef LUMI
+void processAudio(); // special function for lumi
+#endif
+#endif
+// matching function between keypad/button register and call-back check from action list
+// currently using one button channel (characters '0' and higher)
+// and 32 switch positions (in 4 bytes)
+bool getRemoteSwitch(char button) {
+  if((button >='0' && button<='9') || button=='*' || button=='#'){ // check keypad buttons
+    #ifdef KEYPAD_CHANNEL
+    if(channels[KEYPAD_CHANNEL] == button) return true;
+    #endif
+  }
+  #ifdef SWITCH_CHANNEL
+  else if(button >=0 && button < 8) {
+    if((channels[SWITCH_CHANNEL]) & 1<<button) return true;
+  }
+  else if(button >=8 && button < 16) {
+    if((channels[SWITCH_CHANNEL+1]) & 1<<(button-8)) return true;
+  }
+  else if(button >=16 && button < 24) {
+    if((channels[SWITCH_CHANNEL+2]) & 1<<(button-16)) return true;
+  }
+  else if(button >=24 && button < 32) {
+    if((channels[SWITCH_CHANNEL+3]) & 1<<(button-24)) return true;
+  }
+  #endif
+  return false;
+}
+// radio communication: for now either the CRSF (ELRS) or the (old) APC220 434 MHz system
+#ifdef USE_CRSF
+#include "CRSF.h"
+CRSF crsf;
+#else
+#include "Radio.h"
+#endif
+//////////////////////////////////////////////////////////////////////////////////////////
+// and here the program starts
+//////////////////////////////////////////////////////////////////////////////////////////
+
+#ifdef WIFICONTROL
+#include "WIFIremote.h"
+WIFIremote remote;
+#endif
+
+
+void setup() {
+  Serial.begin(115200);
+  //while(!Serial){};
+  pinMode(LED_BUILTIN, OUTPUT);
+////////////////////////////////
+#ifdef USE_DDSM
+	DDSMport.begin(115200);
+	dc.pSerial = &DDSMport;
+	dc.set_ddsm_type(210); 	// config the type of ddsm. 
+	dc.clear_ddsm_buffer(); // clear ddsm serial buffer.
+	// change the ID of DDSM210.
+	// args: ddsm_change_id(GOAL_ID)
+	//dc.ddsm_change_id(4); // change the DDSM210 ID to 4
+  dc.ddsm_change_mode(4, 2);  // 0 pwm, 2 speed, 3 position
+  #endif
+#ifdef USE_STS
+  STSport.begin(1000000);
+  st.pSerial = &STSport;
+  // int ID_ChangeFrom = 1;
+  // int ID_Changeto   = 16;
+  // st.unLockEprom(ID_ChangeFrom);//unlock EPROM-SAFE
+  // st.writeByte(ID_ChangeFrom, SMS_STS_ID, ID_Changeto);//ID
+  // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
+#endif
+
+#ifdef USE_AUDIO
+
+audioInit(&player1, &player1port, &player2, &player2port);
+
+// lumi does this on core 2
+#endif
+
+#ifdef USE_OLED
+  // The display uses a standard I2C, on I2C 0, so no changes or pin-assignments necessary
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Address 0x3C for 128x32
+  display.clearDisplay();                     // start the screen
+#endif
+  // encoder
+#ifdef USE_ENCODER
+  pinMode(PUSH_BUTTON, INPUT_PULLUP);
+  pinMode(QUADRATURE_A_PIN, INPUT_PULLUP);
+  pinMode(QUADRATURE_B_PIN, INPUT_PULLUP);
+  unsigned int offset = pio_add_program(pio, &quadratureA_program);
+  quadratureA_program_init(pio, sm, offset, QUADRATURE_A_PIN, QUADRATURE_B_PIN);
+#endif
+
+#if defined(BOARD_V1) || defined(BOARD_V2)
+relay.begin();
+#endif
+///////////////////
+#ifdef USE_MOTOR
+configureMotors();
+#endif
+//trommel.init();
+//trommel.setSpeed(200,0);
+// RS485 (dynamixel protocol) on Serial1:
+#ifdef USE_RS485
+  RS485Init(RS485_BAUD, RS485_SR);
+#endif
+
+#ifdef AMI  
+// startup motors: 
+  RS485WriteByte(18, 1, 1); // motor active
+  delay(300);
+  RS485WriteByte(18, 2, 0); // motor neutral
+    //ServoBoardWrite(18, 2, BREAKING); // motor neutral //was 18, 2, breaking
+    //ServoBoardWrite(22, 1, 127); // steer neutral
+  RS485WriteByte(22,1,127);
+  configureSequences();
+#endif
+
+#ifdef ROBOTIS
+  Serial1.setTX(0);
+  Serial1.setRX(1);
+    // Set Port baudrate to 1000000bps. This has to match with DYNAMIXEL baudrate.
+  dxl.begin(1000000);
+  // Set Port Protocol Version. This has to match with DYNAMIXEL protocol version.
+  dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+  
+  dxl.ping(DXL_ID);
+
+  // Turn off torque when configuring items in EEPROM area
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_POSITION);
+  dxl.torqueOn(DXL_ID);
+
+  // Limit the maximum velocity in Position Control Mode. Use 0 for Max speed
+  dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID, 0);
+
+#endif
+
+#ifdef CAN_DRIVER
+  while(CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) != CAN_OK){ // check if conenction could be establisehd; retry if not
+    Serial.println("Error Initializing MCP2515...");
+    delay(100);
+  } 
+  Serial.println("MCP2515 Initialized Successfully!");
+  CAN0.setMode(MCP_NORMAL);   // Change to normal mode to allow messages to be transmitted
+#endif
+
+#ifdef CUBEMARS
+  servo_conn.set_origin(ID_MOTOR_1, 0);
+  #endif
+
+  // radio on Serial2: CRSF or APC RF:
+#ifdef USE_CRSF
+  crsf.begin();
+#else
+  RFinit();
+  RFsetSettings(2);
+#endif
+// and now start up the channel buffer!
+  for (int n = 0; n < NUM_CHANNELS; n++) {
+        channels[n] = saveValues[n];
+  }
+  #ifdef EXPO_KEY
+  pinMode(EXPO_KEY,INPUT_PULLUP);
+  #endif
+
+  #ifdef WASHMACHINE
+  delay(500);
+  // Core: default GROVE is usually at Wire (SDA/SCL)
+  servos.begin(Wire, 0x25);
+#endif
+
+  #ifdef WIFICONTROL
+  WIFIremote::Config cfg;
+  cfg.ssid = "VacuumBot";
+  cfg.pass = "12345678";
+
+  // Important: fixed IP so your sticker expectations never change
+  cfg.apIP = IPAddress(192,168,42,1);
+  cfg.apGateway = IPAddress(192,168,42,1);
+  cfg.apMask = IPAddress(255,255,255,0);
+
+  cfg.lockControlPage = true;     // 2nd user gets "please await"
+  cfg.ownerLeaseMs = 10000;       // free if owner stops sending /api for 10s
+  cfg.motorIdleMs = 30000;
+  cfg.disconnectIdleMs = 120000;
+
+  remote.begin(cfg);
+
+  Serial.print("AP IP: "); Serial.println(remote.ip());
+  Serial.println("Sticker QR payload:");
+  Serial.println("WIFI:T:WPA;S:VacuumBot;P:12345678;H:false;;");
+
+  pinMode(14,OUTPUT);
+  pinMode(15,OUTPUT);
+  digitalWrite(15,HIGH);
+  pinMode(10,OUTPUT);
+  pinMode(11,OUTPUT);
+  digitalWrite(11,HIGH);
+
+  #endif
+
+
+  //watchdog_enable(200, 1);  // 100 ms timeout, pause_on_debug = true
+
+  //digitalWrite(3,HIGH);
+  //digitalWrite(12,HIGH);
+
+}
+
+void loop() {
+  static int mode = IDLE;  // check the status
+  static bool startedUp = false; // to avoid responding to the inital timeout (zero) 
+// the following are important to make sure the brakes are switched on after a second of inactivity
+  static bool brakeState = 1;
+  static unsigned long brakeTimer;
+// poll functions outside the 20Hz main loop
+#ifndef USE_CRSF
+  RadioPoll();
+#endif
+// RS485 as interface. 
+#ifdef USE_RS485
+  RS485Poll();
+#endif
+// there in an encoder on the board, optional
+#ifdef USE_ENCODER
+  pio_sm_exec_wait_blocking(pio, sm, pio_encode_in(pio_x, 32));
+  int position = pio_sm_get_blocking(pio, sm);
+#endif
+// -----------------------------------------------------------------------------
+// the 20 Hz main loop starts here!
+// -----------------------------------------------------------------------------
+  #ifdef WIFICONTROL
+  remote.loop();
+  #endif
+  static unsigned long looptime;
+if (millis() >= looptime + 49) {
+ looptime = millis();
+
+#ifdef USE_CRSF
+    crsf.GetCrsfPacket();
+    if(crsf.crsfData[1] == 24) startedUp = true; // so now we can respond to a timeout
+    if (crsf.crsfData[1] == 24 && mode == ACTIVE) {
+      if (digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN, LOW);
+      else digitalWrite(LED_BUILTIN, HIGH);
+      // in 16 channel mode the last two channels are used by ELRS for other things
+      // check https://github.com/ExpressLRS/ExpressLRS/issues/2363
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)    
+      if(!animation.isPlaying()&&!expanimation.isPlaying()){
+#else
+      if(true){
+#endif
+        for (int n = 0; n < 16; n++) {
+          channels[n] = constrain(map(crsf.channels[n], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX-CRSF_CHANNEL_OFFSET, 0, 255),0,255);  //write
+        }
+      }
+      // channels[8] contains the animation start and stop, so is always written by remote
+      channels[8] = constrain(map(crsf.channels[8], CRSF_CHANNEL_MIN-CRSF_CHANNEL_OFFSET, CRSF_CHANNEL_MAX, 0, 255),0,255);  //write
+      crsf.UpdateChannels();
+    }
+#endif
+// now for specific interpretation of all the channels
+#ifdef USE_DDSM
+  dc.ddsm_ctrl(4, map(channels[1],0,255,-2100,2100), 0);
+#endif
+
+#ifdef USE_STS
+// top yaw
+st.WritePosEx(16, map(channels[0],0,255,1024,3072), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// LED
+st.WritePosEx(20, map(channels[5],0,255,0,1048), map(channels[6],0,255,0,2048), 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// top pitch
+st.WritePosEx(15, map(channels[1],0,255,512,2048), 2000, 100);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// elbow pitch
+st.WritePosEx(14, map(channels[2],0,255,2700,1024), 1000, 20);//servo(ID1) speed=1500，acc=50，move to position=2000.
+// double joint pitch, joint 12 leads, joint 13 has been tuned to follow
+int centerpos = 1875;
+int value = map(channels[2],0,255,-625,625); 
+int offset = 300;
+st.WritePosEx(13, centerpos - value + offset, 1000, 20);
+st.WritePosEx(12, centerpos + value, 1000, 20);
+// bottom yaw
+st.WritePosEx(11, map(channels[3],0,255,1024,3072), 1000, 20);
+#endif
+
+#ifdef WASMACHINE
+brakeTimer = BRAKE_TIMEOUT;
+ motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+ motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
+ if(channels[7]==252){
+servos.writeServoPulse(7, map(channels[2],0,255,2000,1300),true);
+ servos.writeServoPulse(0, map(channels[6],0,255,1000,2000),true);
+ }
+ else{
+  servos.detach(0);
+  servos.detach(7);
+ }
+ //motorLeft.setSpeed(map(channels[0],0,255,-127,127),brakeState);
+ //motorRight.setSpeed(map(channels[0],0,255,-127,127),brakeState);
+ trommel.setSpeed(map(channels[3],0,255,-255,255),brakeState);
+#endif
+
+#ifdef STOFZUIGER
+if (remote.ownerId() != -1){
+brakeTimer = BRAKE_TIMEOUT;
+ motorLeft.setSpeed(remote.left(),brakeState);
+ motorRight.setSpeed(remote.right(),brakeState); 
+ if(remote.wideBrush())analogWrite(14,127); else analogWrite(14,0);
+ if(remote.cornerBrush())digitalWrite(15,LOW); else digitalWrite(15,HIGH);
+  if(remote.blower())digitalWrite(10,HIGH); else digitalWrite(10,LOW);
+ if(remote.blower())digitalWrite(11,LOW); else digitalWrite(11,HIGH);
+}
+else{
+ brakeTimer = BRAKE_TIMEOUT;
+//  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+//  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
+ motorLeft.setSpeed(0,brakeState);
+ motorRight.setSpeed(0,brakeState); 
+ analogWrite(14,LOW);
+ digitalWrite(15,HIGH);
+ digitalWrite(10,LOW);
+ digitalWrite(11,HIGH);
+
+}
+ #endif
+
+
+
+#ifdef LUMI
+    // Now, LUMI uses some special function to control the remote - perhaps the other relays can become actions
+    // TODO (channel 12 as switch point to check the relays)
+    // map the joystick input to the relay switches, only when the first switch is on
+    if(getRemoteSwitch(0)) relay.joystickToRelays(channels[0],channels[1]);
+    // and now for audio control
+    //    processAudio(); // as separate void below...   
+#endif
+// THe DC motors are controlled with sign-magnitude (PWM functions in the motor class)
+// only when there is no animation playing (no driving while animating)
+#if defined(USE_MOTOR) && defined(ANIMATION_KEY) && defined(EXPO_KEY)
+if(!animation.isPlaying() && !expanimation.isPlaying()){
+  #ifdef USE_SPEEDSCALING
+  #ifdef USE_KEYPAD_SPEED
+  if(getRemoteSwitch('#')){
+  #else
+  if(channels[2]==192){
+  #endif
+  brakeTimer = BRAKE_TIMEOUT;
+  motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
+  motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)),brakeState);
+}
+  else if (channels[2]==128){
+    brakeTimer = BRAKE_TIMEOUT;
+    motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState);
+    motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)),brakeState); 
+  }
+  else {
+    motorLeft.setSpeed(0,brakeState);
+    motorRight.setSpeed(0,brakeState);
+  }
+   #else
+   brakeTimer = BRAKE_TIMEOUT;
+   motorLeft.setSpeed(getLeftValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
+   motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)),brakeState);
+   #endif
+}
+#endif
+// now, the following is for debug but also for recording motion tracks. The typical motion track
+// for animal love or for animaltroniek contains 9 channels. All channels 16 (max, see NUM_CHANNELS)
+#ifdef DEBUG
+#define PRINT_CHANNELS 9
+Serial.print('{');
+    for (int i = 0; i < PRINT_CHANNELS; i++) {
+      Serial.print(channels[i]);
+      if (i < (PRINT_CHANNELS-1)) Serial.print(',');
+    }
+    Serial.println("},");
+#endif
+// a special key (typically in last key/switch buffer) is the one for starting and stopping animations
+// needless to say, this key value should NOT! be recorded
+#ifdef ANIMATION_KEY
+if(getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()){
+  animation.start(); 
+  #ifdef USE_MOTOR     
+  motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+  #endif
+}
+if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
+#endif
+
+#ifdef EXPO_KEY
+if(mode==IDLE){
+if(!digitalRead(EXPO_KEY) && !expanimation.isPlaying()){
+  expanimation.start();
+
+}
+if (expanimation.isPlaying() && digitalRead(EXPO_KEY)) {
+  expanimation.stop();
+  motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+        for (int n = 0; n < NUM_CHANNELS; n++) {
+        channels[n] = saveValues[n];
+      }
+}
+if(expanimation.isPaused()||!expanimation.isPlaying()){
+    motorLeft.setSpeed(0,brakeState);
+  motorRight.setSpeed(0,brakeState);
+
+}
+else {
+    motorLeft.setSpeed(-40,brakeState);
+  motorRight.setSpeed(-40,brakeState);
+}
+}
+#endif
+// RS485 passthrough of Remote data (for eyes, etc). In order to reduce the data load
+// the BUFFER_PASSTHROUGH can be set to the minimum number of bytes necessary
+// the Dynamixel protocol uses an ID in the message which has to be set here
+#ifdef USE_RS485
+   #ifdef BUFFER_PASSTHROUGH
+    unsigned char headMessage[BUFFER_PASSTHROUGH];
+    for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
+      headMessage[i] = channels[i];  // transparent pass-through
+    }
+    RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);  // check ID!!
+    #else 
+     #ifdef AMI
+     /// steer software
+      if ((channels[0] > 140 || channels[0] < 100) && mode==ACTIVE && !ANIM_PLAYING()) {
+        RS485WriteByte(22, 1, map(channels[0], 0, 255, 255, 0));
+      }
+      else RS485WriteByte(22, 1, 127);
+      // deadzone check and limiting of values. this is aditional to limiting in the transmitter
+      // note that the MAX_BACK and MAX_FRONT values defined earlier are the 'fast, turbo boost'
+      // values. For normal operation the values are limited in the transmitter.
+      if (channels[2]==192) {
+        if (channels[1] < 110 && mode==ACTIVE && !ANIM_PLAYING()) { // back
+          RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, FAST_SPEED, 0), 0, FAST_SPEED));
+        }
+        else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
+          RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, FAST_SPEED), 0, FAST_SPEED)); // forward
+        }
+      }
+      else if(channels[2]==128){
+        if (channels[1] < 110 && mode==ACTIVE && !ANIM_PLAYING()) { // back
+          RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, SLOW_SPEED, 0), 0, SLOW_SPEED));
+        }
+        else if (channels[1] > 135 && mode==ACTIVE && !ANIM_PLAYING()) {
+          RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, SLOW_SPEED), 0, SLOW_SPEED)); // forward
+        }        
+      }
+      else RS485WriteByte(18, 2, 0); // neutral
+    RS485WriteByte(10, 0, map(channels[0], 255, 0, 50, 130));  // for the eyes
+    RS485WriteByte(10, 1, map(channels[0], 255, 0, 50, 130));  // for the eyelids
+    
+     #endif
+
+    #endif
+
+#endif
+
+#ifdef AMI
+    if(getRemoteSwitch('2') && !blink){
+       blink = 1;
+       player2port.listen();
+       player2.playFileNum(16);
+       RS485WriteByte(10, 2, 0);  // was 20
+    }
+    else if (!getRemoteSwitch('2') && blink==1) {
+      blink = 0;
+      RS485WriteByte(10, 2,90);
+    }
+#endif 
+
+#ifdef ROBOTIS
+  dxl.setGoalPosition(DXL_ID, map(channels[2],0,255,1024,3072));
+#endif
+
+#ifdef CUBEMARS
+  servo_conn.set_pos_spd(ID_MOTOR_1, 180, 1000, 1000);
+  if (!digitalRead(CAN0_INT)) {
+    // get all messages in waiting queue
+    while (CAN_MSGAVAIL == CAN0.checkReceive()) {
+      // receive and process messages
+      servo_conn.can_receive();
+    }
+  }
+  // print received data to Serial output
+  servo_conn.print_motor_vars(ID_MOTOR_1);
+#endif
+
+// now for the important mode / time-out settings related to CRSF communication. 
+// only start up when a valid message has been received (see top of the loop)
+// go to safe state after 9 timeout steps (so 0.5 sec)
+// startup when the timeout has been reset (equals 0)
+#ifdef USE_CRSF
+    if (crsf.getTimeOut() > 9 && mode == ACTIVE) {
+#else
+    if (getTimeOut() > 9 && mode == ACTIVE) {
+#endif
+      mode = IDLE;
+      digitalWrite(LED_BUILTIN, HIGH);
+#if defined(ANIMATION_KEY) && defined(EXPO_KEY)
+      if(!animation.isPlaying() && !expanimation.isPlaying()){
+#else
+        if(true){
+#endif
+      for (int n = 0; n < NUM_CHANNELS; n++) {
+        channels[n] = saveValues[n];
+      }
+    }
+      #ifdef USE_MOTOR
+ //     motorLeft.setSpeed(0,brakeState);
+ //     motorRight.setSpeed(0,brakeState);
+      #endif
+      #ifdef AMI
+      RS485WriteByte(18, 2, 0); // motor neutral
+      RS485WriteByte(22,1,127); // steer neutral
+      #endif
+    }
+#ifdef USE_CRSF
+    else if (crsf.getTimeOut() < 1 && mode == IDLE) {
+#else
+    else if (getTimeOut() < 1 && mode == IDLE) {
+#endif
+      if(startedUp) mode = ACTIVE;
+    }
+// this is where the mapping to Relays and sounds takes place
+#ifdef NUM_ACTIONS
+    for (int n = 0; n < NUM_ACTIONS; n++) {
+      myActionList[n].update();
+    }
+    #ifdef AMI
+    looking.update();
+    #endif
+#endif
+/////////// kick the time out checker! //////////
+#ifdef USE_CRSF
+    crsf.nudgeTimeOut();
+#else
+    nudgeTimeOut();
+#endif
+// and the motor bit: timer for the brakeState
+#ifdef USE_MOTOR
+  if(brakeTimer > 0) {brakeTimer --;brakeState = 0;}
+  if(brakeTimer == 0) brakeState = 1;
+#endif
+// important: when an animation is playing (is checked in the animation class)
+#ifdef ANIMATION_KEY
+  animation.update();
+#endif
+#ifdef EXPO_KEY
+  expanimation.update();
+#endif
+
+    #ifdef USE_AUDIO
+     static int volume;
+     if(channels[4]!=volume) {
+      player1.setVol(map(channels[4],0,255,0,32));
+      player2.setVol(map(channels[4],0,255,0,32));
+
+    }
+    #endif
+// now the RF processing
+  watchdog_update();
+  }  
+// ------------------------------------------------------------------
+// the end of the 20Hz loop
+// ------------------------------------------------------------------
+// finally, different timer: screen update
+#ifdef USE_OLED
+  unsigned long screentimer;
+  if (millis() > screentimer + 99) {
+    screentimer = millis();
+#ifdef USE_ENCODER
+    processScreen(mode, position);
+#else
+    processScreen(mode, 0);
+#endif
+  }
+#endif
+}  // end of main
+// 
+// now on the other core we run the USB joystick bit AND the audio controllers
+void setup1(){
+  #ifdef USB_JOYSTICK
+  Joystick.begin(); 
+#endif
+  // audio players
+#ifdef LUMI
+audioInit(&player1, &player1port, &player2, &player2port);
+#endif
+}
+void loop1(){
+  static unsigned long looptime1;
+  if(millis()>looptime1+49){
+    looptime1=millis();
+    #ifdef USB_JOYSTICK
+    Joystick.X(map(channels[2],0,255,0,1023));
+    Joystick.Y(map(channels[3],0,255,0,1023));
+    Joystick.Z(map(channels[5],0,255,0,1023));
+    Joystick.Zrotate(map(channels[9],0,255,0,1023));
+    if(channels[11]&1<<4)Joystick.button(1,true); else Joystick.button(1,false);
+    if(channels[11]&1<<6)Joystick.button(4,true); else Joystick.button(4,false);
+    #endif
+    #ifdef LUMI
+        processAudio(); // as separate void below...   
+    #endif
+
+  }
+}
+// end of core1 code
+//--------------------------------------------------------------------------------
+// the following function is called when RS485 data is received. This is currently
+// not in use
+#ifdef USE_RS485
+void ProcessRS485Data(int ID, int dataLength, unsigned char *Data) {
+}
+#endif
+// for the other type of radio (not CRSF)
+#ifndef USE_CRSF
+void ProcessRadioData(int ID, int dataLength, unsigned char *Data) {
+  if (digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN, LOW);
+  else digitalWrite(LED_BUILTIN, HIGH);
+  if (Data[0] == 0x03) {
+    for (int n = 0; n < NUM_CHANNELS; n++) {
+      channels[n] = Data[n + 1];  //write
+    }
+  }
+}
+#endif
+// and now for the display function, a number of possible menu visualisations (for now set to menu 1)
+#ifdef USE_OLED
+void processScreen(int mode, int position) {
+  static int menu = 1;
+  display.clearDisplay();
+  #ifdef OLED_ROTATE
+  display.setRotation(2);
+  #endif
+  if (menu == 0) {
+    display.fillRect(124, 0, 4, position, SSD1306_WHITE);
+    display.setTextSize(1);               // Normal 1:1 pixel scale
+    display.setTextColor(SSD1306_WHITE);  // Draw white text
+  } else if (menu == 1) {
+    display.setTextSize(1);  // Draw 2X-scale text
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);  // Start at top-left corner
+    if (mode == ACTIVE) display.println(F("ACTV"));
+    if (mode == IDLE) display.println(F("IDLE"));
+    // print keypad char
+        // print bars
+    for (int n = 0; n < NUM_CHANNELS-2; n++) {
+      display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
+    }
+    display.fillRect(124, 0, 4, position, SSD1306_WHITE);
+    display.setCursor(32, 0);
+#ifdef WIFICONTROL
+   display.fillRect(0 * 6, 32 - remote.right() / 16, 4, 32, SSD1306_INVERSE);
+   display.fillRect(1 * 6, 32 - remote.left() / 16, 4, 32, SSD1306_INVERSE);
+   display.fillRect(2 * 6, 32 - remote.wideBrush()*32, 4, 32, SSD1306_INVERSE);
+   display.fillRect(3 * 6, 32 - remote.cornerBrush()*32, 4, 32, SSD1306_INVERSE);
+   display.fillRect(4 * 6, 32 - remote.blower()*32, 4, 32, SSD1306_INVERSE);
+    display.print(remote.ip());
+    display.setCursor(32, 8);
+    if (remote.ownerId() == -1) {
+  display.print("no connection");
+} else {
+  IPAddress ip = remote.ownerIP();
+  display.print(ip[0]); display.print(".");
+  display.print(ip[1]); display.print(".");
+  display.print(ip[2]); display.print(".");
+  display.print(ip[3]);
+}
+display.setCursor(32, 16);
+
+    if(remote.ownerId()!=-1){display.print(F("has connected"));}
+    display.setCursor(32, 24);
+    if(remote.inUse())display.print(F("getting data"));
+#endif
+    #ifdef KEYPAD_CHANNEL
+    if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
+    #endif
+    display.setCursor(70, 0);
+#if defined(ANIMATION_KEY) 
+    if (animation.isPlaying()){ 
+      display.print (F("seq run"));
+    } 
+#endif
+#if defined(EXPO_KEY)
+    if (expanimation.isPlaying()){
+      display.print (F("expo run"));
+    }   
+#endif
+#ifdef AMI
+  if(looking.isPlaying())display.print (F("look"));
+#endif
+
+  } else if (menu == 2) {
+    display.setCursor(0, 0);  // Start at top-left corner
+    display.setTextSize(1);   // Draw 2X-scale text
+    display.setTextColor(SSD1306_WHITE);
+    display.println(F("1234567890 actions"));
+    #ifdef NUM_ACTIONS
+    for (int i = 0; i < NUM_ACTIONS; i++) {
+      if (myActionList[i].getState() == 1) display.fillRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
+      else display.drawRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
+    }
+    #endif
+  }
+  display.display();
+}
+#endif
+// and the audio processing for a.o. Lumi. 
+// current issue is that checking player1.isPlaying() waits for milliseconds, so cannot be used to check file status
+// also starting up a file takes more than 50 mS (so you will see a dip in message rate)
+// it would be advisable to run this on the other core, were it not for the fact that that would conflict
+// with the USB joystick functionality. 
+#ifdef LUMI
+void processAudio(){
+  static int isPlaying = 0;
+      static int playingSample;
+     //static int playTimer = 0; 
+     int trackToPlay = channels[13]/8;
+     if(trackToPlay == 0 && isPlaying && channels[6]<100){
+       player1.pause();
+       isPlaying = 0;
+     }
+     else if (trackToPlay >0 && trackToPlay < (NUM_TRACKS+1) && trackToPlay !=isPlaying && channels[6]<100){
+       player1.playSpecFile(tracklist[trackToPlay-1]);
+       //player1.playFileNum(trackToPlay);
+       isPlaying = trackToPlay;
+     }
+     static int volume1;
+     if(channels[4]!=volume1) player1.setVol(map(channels[4],0,255,0,32));
+     volume1 = channels[4];
+     // the separate samples:
+    
+     static int volume2;
+     if(channels[7]!=volume2) player2.setVol(map(channels[7],0,255,0,32));
+     volume2 = channels[7];
+     
+     if(channels[9]>(127+30) && (playingSample !=2)){
+      playingSample = 2;
+      player2.playFileNum(1);
+      // player2.playSpecFile("/mp3/02-ang.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
+     }
+     else if (channels[9]<(127-30) && (playingSample !=5)){
+      player2.playFileNum(6);
+      // player2.playSpecFile("/mp3/05-noo.mp3");
+      // Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      playingSample = 5;
+      //playTimer = 20;
+     }
+     else if ((channels[11]&16) && (playingSample != 3)){
+      //player2.playSpecFile("/mp3/03-slp.mp3");
+      playingSample = 3; 
+      player2.playFileNum(3);
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
+     }
+     else if ((channels[11]&64) && (playingSample != 6)){
+      //player2.playSpecFile("/mp3/06-yes.mp3");
+      playingSample = 6; 
+      player2.playFileNum(7);
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      //playTimer = 20;
+     }
+     else if ((channels[0]<100) && (playingSample != 4)){
+      // player2.playSpecFile("/mp3/04-mov.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      player2.playFileNum(4);
+      playingSample = 4; 
+      //playTimer = 20;
+     }   
+      else if (((channels[12]&16) || (channels[12]&32)) && (playingSample != 1)){
+        player2.playFileNum(8);
+      // player2.playSpecFile("/mp3/01-alm.mp3");
+      //       Serial.print("file: ");
+      // Serial.println(player2.getCurFileNumber());
+      playingSample = 1; 
+      //playTimer = 20;
+     }
+     //else playingSample = 0;
+      //if(playTimer>0) playTimer --; 
+      //if(playTimer ==0) playingSample = 0;  
+}
+#endif
