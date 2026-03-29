@@ -317,6 +317,9 @@ extern Motor motorRight;
 #define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
 void configureMotors();
 //extern Motor tandkrans;
+#define NUM_ACTIONS 2
+extern Action myActionList[NUM_ACTIONS];
+
 #endif
 
 
@@ -356,6 +359,8 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 #define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
 
+#define NUM_ACTIONS 2
+extern Action myActionList[NUM_ACTIONS];
 #define ANIMATION_KEY (24)
 #define DEFAULT_STEPS 1005  //
 extern Motor motorLeft;

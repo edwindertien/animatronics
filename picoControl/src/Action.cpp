@@ -1,8 +1,10 @@
+#include "vehicle_select.h"
 #include "Action.h"
 #include "PicoRelay.h"
+#include "config.h"
 
 extern bool getRemoteSwitch(char button);  // this wil be provided somewhere
-/////extern SoftwareSerial player1port;
+//extern SoftwareSerial player1port;
 //extern SoftwareSerial player2port;
 //extern void writeRelay(int relay,bool state);
 extern PicoRelay relay;
@@ -87,6 +89,7 @@ void Action::trigger() {
   // Play sound if a soundfile is provided
   //if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
   //    player->playSpecFile(soundfile);
+  #ifdef USE_AUDIO
   if (player == &player1 && track >0){
      //player->playFileNum(tracknr);
      player1port.listen();
@@ -99,12 +102,7 @@ void Action::trigger() {
   player2.playFileNum(track);
 
   }
-      //  writeRelay(relay,HIGH);
-
-      // if (player && soundfile !="") {
-      //   player->playSpecFile(soundfile);
-      //   Serial.println(soundfile);
-      // }
+  #endif
 }
 
 void Action::stop() {
@@ -115,7 +113,7 @@ void Action::stop() {
       if (motor != nullptr) {
           motor->setSpeed(0,0);  // Stop the motor
       }
-  
+  #ifdef USE_AUDIO
       // Pause sound if player is initialized
       if (player == &player1) {
           player1port.listen();
@@ -125,7 +123,7 @@ void Action::stop() {
         player2port.listen();
         player2.pause();
       }
-
+#endif
 
 }
 

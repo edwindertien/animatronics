@@ -758,29 +758,7 @@ void processScreen(int mode, int position) {
     }
     display.fillRect(124, 0, 4, position, SSD1306_WHITE);
     display.setCursor(32, 0);
-#ifdef WIFICONTROL
-   display.fillRect(0 * 6, 32 - remote.right() / 16, 4, 32, SSD1306_INVERSE);
-   display.fillRect(1 * 6, 32 - remote.left() / 16, 4, 32, SSD1306_INVERSE);
-   display.fillRect(2 * 6, 32 - remote.wideBrush()*32, 4, 32, SSD1306_INVERSE);
-   display.fillRect(3 * 6, 32 - remote.cornerBrush()*32, 4, 32, SSD1306_INVERSE);
-   display.fillRect(4 * 6, 32 - remote.blower()*32, 4, 32, SSD1306_INVERSE);
-    display.print(remote.ip());
-    display.setCursor(32, 8);
-    if (remote.ownerId() == -1) {
-  display.print("no connection");
-} else {
-  IPAddress ip = remote.ownerIP();
-  display.print(ip[0]); display.print(".");
-  display.print(ip[1]); display.print(".");
-  display.print(ip[2]); display.print(".");
-  display.print(ip[3]);
-}
-display.setCursor(32, 16);
 
-    if(remote.ownerId()!=-1){display.print(F("has connected"));}
-    display.setCursor(32, 24);
-    if(remote.inUse())display.print(F("getting data"));
-#endif
     #ifdef KEYPAD_CHANNEL
     if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
     #endif

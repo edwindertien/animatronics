@@ -203,13 +203,8 @@ Action myActionList[NUM_ACTIONS] = {
 
 #ifdef ANIMALTRONIEK_VIS
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 2
+//#define NUM_ACTIONS 2 - defined in config.h
 Action myActionList[NUM_ACTIONS] = {
-  //Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),
-  //Action('1', -1, DIRECT, &tandkrans, -100),
-  //Action('2', -1, DIRECT, &tandkrans, -100),
-  //Action('3', 3, DIRECT),
-  //Action('4', 4, DIRECT),
   Action(10, 4, DIRECT), // on button s
   Action(11, 5, DIRECT),
 };
@@ -227,7 +222,7 @@ void configureMotors(){
 
 #ifdef ANIMALTRONIEK_KREEFT
 // important mapping of actions, buttons, relay channels and sounds
-#define NUM_ACTIONS 2
+//#define NUM_ACTIONS 2 defined in config.h
 Action myActionList[NUM_ACTIONS] = {
   //Action('a', -1, DIRECT, &tandkrans, 100, "/bubble.mp3", &player1),
   //Action('1', -1, DIRECT, &tandkrans, -100),
