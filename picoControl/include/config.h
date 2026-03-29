@@ -357,7 +357,7 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define VOLUME_CHANNEL 4
 #define SWITCH_CHANNEL 5 //second switch channel will be +1, next up + 2 and + 3
 
-#define BRAKE_TIMEOUT 30 // in loops of 20Hz, so 1.5 sec
+#define BRAKE_TIMEOUT 20 // in loops of 20Hz, so 1.5 sec
 
 #define NUM_ACTIONS 2
 extern Action myActionList[NUM_ACTIONS];
