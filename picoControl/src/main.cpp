@@ -158,14 +158,20 @@ Animation expanimation(expoAnimation, EXPO_STEPS);
 
 // for triggers or tracks on DFRobot players. Note: they have to be installed
 // otherwise the initialisation will hang waiting for a response
-#ifdef USE_AUDIO
-DFRobot_DF1201S player1,player2;
-SoftwareSerial player1port(7, 6);    
-SoftwareSerial player2port(17, 16);  //RX  TX ( so player TX, player RX)
+
+#if USE_AUDIO >= 1
+DFRobot_DF1201S player1;
+SoftwareSerial player1port(7, 6);
+#endif
+#if USE_AUDIO >= 2
+DFRobot_DF1201S player2;
+SoftwareSerial player2port(17, 16);
+#endif
+
 #ifdef LUMI
 void processAudio(); // special function for lumi
 #endif
-#endif
+
 // matching function between keypad/button register and call-back check from action list
 // currently using one button channel (characters '0' and higher)
 // and 32 switch positions (in 4 bytes)
@@ -198,6 +204,37 @@ CRSF crsf;
 #else
 #include "Radio.h"
 #endif
+
+#ifdef SCUBA
+void processBubble() {
+    static bool bubblePlaying = false;
+    static bool jawsWasPlaying = false;
+
+    bool jawsNowPlaying = jaws.isPlaying();
+
+    if (jawsNowPlaying && !jawsWasPlaying) {
+        // jaws just started — player1 will be taken over by the jaws events
+        // just flag that bubble needs to resume later
+        bubblePlaying = false;
+    }
+    else if (!jawsNowPlaying && jawsWasPlaying) {
+        // jaws just finished — restart bubble
+        player1port.listen();
+        player1.playFileNum(BUBBLE_TRACK);
+        bubblePlaying = true;
+    }
+    else if (!jawsNowPlaying && !bubblePlaying) {
+        // initial startup case: neither playing yet, start bubble
+        player1port.listen();
+        player1.playFileNum(BUBBLE_TRACK);
+        bubblePlaying = true;
+    }
+
+    jawsWasPlaying = jawsNowPlaying;
+}
+#endif
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // and here the program starts
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -228,10 +265,8 @@ void setup() {
   // st.LockEprom(ID_Changeto);//EPROM-SAFE locked
 #endif
 
-#ifdef USE_AUDIO
-audioInit(&player1, &player1port, &player2, &player2port);
-
-// lumi does this on core 2
+#if USE_AUDIO >= 1
+audioInit();
 #endif
 
 #ifdef USE_OLED
@@ -262,7 +297,7 @@ configureMotors();
   RS485Init(RS485_BAUD, RS485_SR);
 #endif
 
-#ifdef AMI  
+#if defined(AMI) || defined(SCUBA)  
 // startup motors: 
   RS485WriteByte(18, 1, 1); // motor active
   delay(300);
@@ -635,9 +670,10 @@ else {
     #ifdef AMI
     looking.update();
     #endif
-    #ifdef SCUBA
+#ifdef SCUBA
     jaws.update();
-    #endif
+    processBubble();   // ← add this
+#endif
 #endif
 /////////// kick the time out checker! //////////
 #ifdef USE_CRSF
@@ -658,13 +694,17 @@ else {
   expanimation.update();
 #endif
 
-    #ifdef USE_AUDIO
-     static int volume;
-     if(channels[4]!=volume) {
-      player1.setVol(map(channels[4],0,255,0,32));
-      player2.setVol(map(channels[4],0,255,0,32));
+#if USE_AUDIO >= 1
+    static int volume;
+    if (channels[4] != volume) {
+        player1.setVol(map(channels[4], 0, 255, 0, 32));
+#if USE_AUDIO >= 2
+        player2.setVol(map(channels[4], 0, 255, 0, 32));
+#endif
+        volume = channels[4];
     }
-    #endif
+#endif
+
 // now the RF processing
   watchdog_update();
   }  

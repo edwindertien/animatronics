@@ -1,7 +1,7 @@
 #include "vehicle_select.h"
-#include "Action.h"
+#include "config.h"        // ← defines USE_AUDIO first
+#include "Action.h"        // ← now Audio.h sees USE_AUDIO correctly
 #include "PicoRelay.h"
-#include "config.h"
 
 extern bool getRemoteSwitch(char button);  // this wil be provided somewhere
 //extern SoftwareSerial player1port;
@@ -75,56 +75,43 @@ void Action::update() {
   previousState = getRemoteSwitch(button);
 }
 void Action::trigger() {
-        // Trigger relay action
     if (relaynr >= 0) {
-      relay.writeRelay(relaynr, HIGH);  // Trigger relay
-  }
-
-  // Trigger motor speed if motor is initialized
-  if (motor != nullptr) {
-      motor->setSpeed(motorvalue,0);  // Example: Setting motor speed to full (255). Adjust as needed.
-      //Serial.println("Motor speed set.");
-  }
-
-  // Play sound if a soundfile is provided
-  //if (player != nullptr && soundfile != nullptr && *soundfile != '\0') {
-  //    player->playSpecFile(soundfile);
-  #ifdef USE_AUDIO
-  if (player == &player1 && track >0){
-     //player->playFileNum(tracknr);
-     player1port.listen();
-  player1.playFileNum(track);
-      //Serial.println(soundfile);
-  }
-  else if(player== &player2 && track>0)
-  {
-  player2port.listen();
-  player2.playFileNum(track);
-
-  }
-  #endif
+        relay.writeRelay(relaynr, HIGH);
+    }
+    if (motor != nullptr) {
+        motor->setSpeed(motorvalue, 0);
+    }
+#if USE_AUDIO >= 1
+    if (player == &player1 && track > 0) {
+        player1port.listen();
+        player1.playFileNum(track);
+    }
+#endif
+#if USE_AUDIO >= 2
+    else if (player == &player2 && track > 0) {
+        player2port.listen();
+        player2.playFileNum(track);
+    }
+#endif
 }
 
 void Action::stop() {
-      // Reset relay
-      relay.writeRelay(relaynr, LOW);
-
-      // Pause motor if it's initialized
-      if (motor != nullptr) {
-          motor->setSpeed(0,0);  // Stop the motor
-      }
-  #ifdef USE_AUDIO
-      // Pause sound if player is initialized
-      if (player == &player1) {
-          player1port.listen();
-          player1.pause();
-      }
-     if(player == &player2) {
+    relay.writeRelay(relaynr, LOW);
+    if (motor != nullptr) {
+        motor->setSpeed(0, 0);
+    }
+#if USE_AUDIO >= 1
+    if (player == &player1) {
+        player1port.listen();
+        player1.pause();
+    }
+#endif
+#if USE_AUDIO >= 2
+    if (player == &player2) {
         player2port.listen();
         player2.pause();
-      }
+    }
 #endif
-
 }
 
 int Action::getState() {

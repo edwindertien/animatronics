@@ -28,8 +28,8 @@ void configureMotors(){
 #ifdef SCUBA
 // IMPORTANT: this is now the single, real definition of myActionList
 Action myActionList[NUM_ACTIONS] = {
-  Action('5',  -1, DIRECT, nullptr, 100, 1, &player1), // track 1
-  Action('8',  -1, DIRECT, nullptr, 100, 2, &player1), // track 2
+  Action(-1,  -1, DIRECT, nullptr, 100, 1, &player1), // track 1
+  Action(-1,  -1, DIRECT, nullptr, 100, 2, &player1), // track 2
   Action(0,  14, DIRECT), // hoofd
   Action(2,  1, DIRECT), // snorkel
   Action(3,  2, DIRECT), // snorkel
@@ -73,18 +73,18 @@ Action myActionList[NUM_ACTIONS] = {
 };
 
 // And this is the single, real definition of the sequence
- ActionSequence jaws(4, DIRECT, false);   // button '5', toggle, loop
+ ActionSequence jaws(4, TRIGGER, false);   // button '5', toggle, loop
 
 // // Sequence wiring for SCUBA
  void configureSequences() {
-    jaws.addEvent(0,   EVENT_START, &myActionList[12]); // rook
-    jaws.addEvent(1,   EVENT_START, &myActionList[1]); // jaws
-    jaws.addEvent(500, EVENT_STOP,  &myActionList[12]); // rook stop
-    jaws.addEvent(501, EVENT_START,  &myActionList[6]); // motorkap
-    jaws.addEvent(601, EVENT_STOP,  &myActionList[6]); // motorkap
-    jaws.addEvent(809, EVENT_START,  &myActionList[7]); // motorkap dicht
-    jaws.addEvent(909, EVENT_STOP,  &myActionList[7]); // motorkap dicht
-    jaws.addEvent(1000,EVENT_STOP, &myActionList[1]); // jaws
+jaws.addEvent(0,      EVENT_START, &myActionList[1]);  // start audio
+jaws.addEvent(15000,  EVENT_START, &myActionList[12]); // smoke ON  ← if late-smoke was intentional
+jaws.addEvent(20000,  EVENT_STOP,  &myActionList[12]); // smoke OFF
+jaws.addEvent(20000,  EVENT_START, &myActionList[6]);  // hood OPEN valve ON
+jaws.addEvent(23500,  EVENT_STOP,  &myActionList[6]);  // hood OPEN valve OFF
+jaws.addEvent(23500,  EVENT_START, &myActionList[7]);  // hood CLOSE valve ON
+jaws.addEvent(24900,  EVENT_STOP,  &myActionList[7]);  // hood CLOSE valve OFF
+jaws.addEvent(24900,  EVENT_STOP,  &myActionList[1]);  // stop audio
 }
 #endif // SCUBA
 

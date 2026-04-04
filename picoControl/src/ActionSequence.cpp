@@ -1,3 +1,4 @@
+#include "vehicle_select.h"   // ← ADD THIS
 #include "ActionSequence.h"
 
 ActionSequence::ActionSequence(char button, int mode, bool loop)

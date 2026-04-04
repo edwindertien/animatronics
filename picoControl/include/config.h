@@ -1,6 +1,16 @@
 #pragma once
 //#define DEBUG (1)
 
+#include "vehicle_select.h"
+
+#if defined(AMI) || defined(LUMI)
+  #define USE_AUDIO 2
+#elif defined(SCUBA)
+  #define USE_AUDIO 1
+#else
+  #define USE_AUDIO 0
+#endif
+
 #include "Action.h"
 #include "ActionSequence.h"
 
@@ -123,7 +133,7 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 127, 127, 0, 127, 127, 0, 0, 12
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
 // for the audio module. Typically we use both (a sample and loop player)
-#define USE_AUDIO (1)
+
 
 // RF is either CRSF or (older) APC220 radio
 #define USE_CRSF (1)
@@ -191,10 +201,10 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 #define USE_OLED (1)
 // only use the encoder when these pins are not used for controlling separate motors
 //#define USE_ENCODER (1)
-
+#define BUBBLE_TRACK 1   // track number of the looping background sound
 // Actions can only be coupled with audio when the players are enabled
 // note the board will only start when audio players are available
-#define USE_AUDIO (1)
+
 
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
@@ -245,8 +255,8 @@ const int saveValues[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 // Actions can only be coupled with audio when the players are enabled
 // note the board will only start when audio players are available
-#define USE_AUDIO (1)
-#define TWO_PLAYERS (1)
+
+
 
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3 //experimental offset needed to remap correctly... 
