@@ -18,10 +18,10 @@
 //#define KLARA (1)
 //#define ALAN (1)
 //#define LUMI (1)
-//#define ANIMALTRONIEK_VIS (1)
+#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define AMI (1)
-#define SCUBA (1)
+//#define SCUBA (1)
 //#define EXPERIMENTAL (1)
 
 // ── Axis sources — used in main.cpp to fill CRSF_CH_AXIS_X1/Y1/X2/Y2 ────────
@@ -168,6 +168,7 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 #ifdef ANIMALTRONIEK_VIS
 #define DISPLAY_HEIGHT 32
+#define DISPLAY_ROTATE (1)
 #define USE_CRSF (1)
 #define USE_MAX17048 (1)
 #define STUFF_SWITCHES (1)
