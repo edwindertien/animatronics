@@ -39,25 +39,6 @@
 extern const int saveValues[];
 #endif
 
-#ifdef STOFZUIGER
-#define BOARD_V3 (1)
-#define USE_MOTOR (1)
-//#define USE_M5_SERVOS (1)
-//#define USE_SPEEDSCALING (1)
-#define LOW_SPEED 255
-#define HIGH_SPEED 255
-#define MAX_SPEED 255
-#define BRAKE_TIMEOUT 30
-#define USE_OLED (1)
-#define USE_CRSF (1)
-#define CRSF_CHANNEL_OFFSET 3
-#define NUM_CHANNELS 16
-extern const int saveValues[];
-extern Motor motorLeft;
-extern Motor motorRight;
-void configureMotors();
-#endif
-
 #ifdef WASHMACHINE
 #define BOARD_V3 (1)
 #define USE_MOTOR (1)
@@ -218,6 +199,9 @@ extern const int saveValues[];
 #define USE_RS485 (1)
 #define RS485_BAUD 57600
 #define BUFFER_PASSTHROUGH 9
+//#define RS485_DEBUG        // uncomment to mirror RS485 TX to serial each tick
+//#define DEBUG              // uncomment to dump raw channel values to serial each tick
+#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3

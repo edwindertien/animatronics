@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "platform.h"
+#include "PicoRelay.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Global channel array: received RF values, mapped to 0-255
@@ -13,9 +14,11 @@
 int channels[NUM_CHANNELS] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //////////////////////////////////////////////////////////////////////////////////////////////
 
-// Hardware present on every board
-#include "PicoRelay.h"
 PicoRelay relay;
+
+// Handshake flag: Core 1 waits for this before starting CRSF/audio
+// so it never touches peripherals before Core 0 has initialised them.
+volatile bool _core0SetupDone = false;
 
 #ifdef USE_OLED
 #include <Adafruit_GFX.h>
@@ -105,8 +108,9 @@ Animation animation(defaultAnimation, DEFAULT_STEPS);
 Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif
 // Each platform that uses recorded animations defines ANIMATION_TRACK_H
-// to the name of its track header file (set in config.h)
+// to the name of its track header file (set in config.h per vehicle block)
 #ifdef ANIMATION_TRACK_H
+#pragma message("Animation track: " ANIMATION_TRACK_H)
 #include ANIMATION_TRACK_H
 #endif
 #endif // ANIMATION_KEY
@@ -243,6 +247,9 @@ void setup() {
 
     // --- vehicle-specific setup (sequences, RS485 motor init, etc.) ---
     platformSetup();
+
+    // Signal Core 1 that all hardware is initialised and it is safe to start
+    _core0SetupDone = true;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -279,10 +286,8 @@ void loop() {
     // --- CRSF: read channels mapped by Core 1 ---
 #ifdef USE_CRSF
     if (crsfReady()) {
-        // Blink LED to show active RF
         if (digitalRead(LED_BUILTIN)) digitalWrite(LED_BUILTIN, LOW);
         else                          digitalWrite(LED_BUILTIN, HIGH);
-        // Read all channels atomically from Core 1
         int fresh[16];
         crsfGetChannels(fresh, 16);
 #if defined(ANIMATION_KEY) && defined(EXPO_KEY)
@@ -291,7 +296,6 @@ void loop() {
         {
             for (int n = 0; n < NUM_CHANNELS; n++) channels[n] = fresh[n];
         }
-        // channels[8] (animation key) always updated regardless of animation state
         channels[8] = fresh[8];
         if (!startedUp) startedUp = true;
     }
@@ -340,7 +344,7 @@ void loop() {
     }
 #endif // USE_MOTOR
 
-#ifdef DEBUG
+#ifdef ANIMATION_DEBUG
     Serial.print('{');
     for (int i = 0; i < 9; i++) { Serial.print(channels[i]); if (i < 8) Serial.print(','); }
     Serial.println("},");
@@ -377,6 +381,15 @@ void loop() {
     }
 #endif
 
+    // --- Recorded animation update ---
+    // Runs BEFORE RS485 so animation channel values are transmitted when playing
+#ifdef ANIMATION_KEY
+    animation.update();
+#endif
+#ifdef EXPO_KEY
+    expanimation.update();
+#endif
+
     // --- RS485 passthrough or vehicle steering ---
 #ifdef USE_RS485
 #ifdef BUFFER_PASSTHROUGH
@@ -384,6 +397,23 @@ void loop() {
         unsigned char headMessage[BUFFER_PASSTHROUGH];
         for (int i = 0; i < BUFFER_PASSTHROUGH; i++) headMessage[i] = channels[i];
         RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);
+
+#ifdef RS485_DEBUG
+        static unsigned long _rs485DumpTimer;
+        if (millis() - _rs485DumpTimer > 1000) {
+            _rs485DumpTimer = millis();
+            Serial.print("RS485 TX: ");
+            for (int i = 0; i < BUFFER_PASSTHROUGH; i++) {
+                Serial.print(headMessage[i]);
+                Serial.print(" ");
+            }
+            Serial.print("  [mode=");
+            Serial.print(mode == ACTIVE ? "ACTV" : "IDLE");
+            Serial.print(" rf=");
+            Serial.print(crsfReady() ? "OK" : "NO");
+            Serial.println("]");
+        }
+#endif
     }
 #else
     // Steering and drive for RS485-connected motor controllers (AMI, SCUBA, etc.)
@@ -426,7 +456,9 @@ void loop() {
 
     // --- Timeout / mode management ---
 #ifdef USE_CRSF
-    if (crsfReady() && crsfSilenceMs() > 500 && mode == ACTIVE) {
+    // Loss: crsfLost() is true when Core 1 confirmed 500ms silence.
+    // We cannot use crsfReady() here — it's already false when LINK_LOST.
+    if (crsfLost() && mode == ACTIVE) {
 #else
     if (getTimeOut() > 9 && mode == ACTIVE) {
 #endif
@@ -436,12 +468,18 @@ void loop() {
         if (!animation.isPlaying() && !expanimation.isPlaying())
 #endif
         {
-            for (int n = 0; n < NUM_CHANNELS; n++) channels[n] = saveValues[n];
+            for (int n = 0; n < NUM_CHANNELS; n++) {
+#ifdef ANIMATION_KEY
+                if (n == 8) continue;  // preserve animation key channel
+#endif
+                channels[n] = saveValues[n];
+            }
         }
-        platformOnIdle();  // vehicle: safe/neutral state
+        platformOnIdle();
     }
 #ifdef USE_CRSF
-    else if (crsfReady() && crsfSilenceMs() < 50 && mode == IDLE) {
+    // Recovery: crsfReady() becomes true again once Core 1 receives a good frame
+    else if (crsfReady() && mode == IDLE) {
 #else
     else if (getTimeOut() < 1 && mode == IDLE) {
 #endif
@@ -463,14 +501,6 @@ void loop() {
 #ifdef USE_MOTOR
     if (brakeTimer > 0) { brakeTimer--; brakeState = 0; }
     if (brakeTimer == 0) brakeState = 1;
-#endif
-
-    // --- Recorded animation update ---
-#ifdef ANIMATION_KEY
-    animation.update();
-#endif
-#ifdef EXPO_KEY
-    expanimation.update();
 #endif
 
     // --- Volume control ---
@@ -506,6 +536,12 @@ void loop() {
 // CORE 1 — USB joystick (LUMI) and platform Core 1 tasks
 //////////////////////////////////////////////////////////////////////////////////////////////
 void setup1() {
+    // Wait until Core 0 has finished all hardware initialisation.
+    // setup1() starts concurrently with setup() on RP2040 — without this
+    // barrier, Core 1 may touch Serial2/I2C/SPI before Core 0 has configured them.
+    extern volatile bool _core0SetupDone;
+    while (!_core0SetupDone) tight_loop_contents();
+
 #ifdef USB_JOYSTICK
     Joystick.begin();
 #endif
@@ -566,26 +602,54 @@ void processScreen(int mode, int position) {
     if (menu == 1) {
         display.setTextSize(1);
         display.setTextColor(SSD1306_WHITE);
+        // --- Top line ---
+        // x=0:  RF link status (7 chars)
+        // x=42: mode ACTV/IDLE
+        // x=80: animation/sequence status + platform text (right end)
         display.setCursor(0, 0);
-        if (mode == ACTIVE) display.println(F("ACTV"));
-        if (mode == IDLE)   display.println(F("IDLE"));
-
-        for (int n = 0; n < NUM_CHANNELS - 2; n++)
-            display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
-        display.fillRect(124, 0, 4, position, SSD1306_WHITE);
-        display.setCursor(32, 0);
-#ifdef KEYPAD_CHANNEL
-        if (channels[KEYPAD_CHANNEL] > 1) display.print((char)(channels[KEYPAD_CHANNEL]));
+#ifdef USE_CRSF
+        CrsfStatus cs = crsfGetStatus();
+        switch (cs.linkState) {
+            case CRSF_LINK_WAITING: display.print(F("RF:WAIT")); break;
+            case CRSF_LINK_ACTIVE:  display.print(F("RF:OK  ")); break;
+            case CRSF_LINK_LOST:    display.print(F("RF:LST")); break;
+        }
+#else
+        if (mode == ACTIVE) display.print(F("RF:--- "));
+        else                display.print(F("RF:--- "));
 #endif
-        display.setCursor(70, 0);
+        display.setCursor(42, 0);
+        if (mode == ACTIVE) display.print(F("ACTV"));
+        if (mode == IDLE)   display.print(F("IDLE"));
+
+        display.setCursor(80, 0);
 #ifdef ANIMATION_KEY
-        if (animation.isPlaying())    display.print(F("seq run"));
+        if (animation.isPlaying()) {
+            display.print(F("seq "));
+            display.print(animation.elapsedSeconds());
+            display.print(F("s"));
+        } else
 #endif
 #ifdef EXPO_KEY
-        if (expanimation.isPlaying()) display.print(F("expo run"));
+        if (expanimation.isPlaying())      { display.print(F("expo")); }
+        else
 #endif
-        // Vehicle-specific status (sequence names etc.)
-        platformScreen();
+        platformScreen();   // vehicle-specific (e.g. "jaws", "look")
+
+        // --- Bar graph: channels 0-13, y=8..32 ---
+        for (int n = 0; n < NUM_CHANNELS - 2; n++)
+            display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
+
+        // Encoder position bar on right edge
+        display.fillRect(124, 0, 4, position, SSD1306_WHITE);
+
+        // --- Bottom-right: keypad indicator (x=92, y=24) ---
+#ifdef KEYPAD_CHANNEL
+        if (channels[KEYPAD_CHANNEL] > 1) {
+            display.setCursor(110, 24);
+            display.print((char)(channels[KEYPAD_CHANNEL]));
+        }
+#endif
 
     } else if (menu == 2) {
         display.setCursor(0, 0);

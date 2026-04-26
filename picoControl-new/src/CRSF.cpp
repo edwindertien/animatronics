@@ -8,9 +8,9 @@ void CRSF::begin(){
 	  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 	int16_t loc_channels[16]  = {
 	  		1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023,1023};
-  	port.begin(SERIAL_BAUDRATE);
-    port.setTX(8);
+  	port.setTX(8);
     port.setRX(9);
+    port.begin(SERIAL_BAUDRATE);
 
   //initial data;
 	memcpy(crsfData,loc_crsfData,CRSF_PACKET_SIZE);
@@ -119,7 +119,9 @@ uint8_t crsf_crc8(const uint8_t *ptr, uint8_t len) {
 void CRSF::GetCrsfPacket(void){
 
     uint8_t crc;
-    bufferIndex=0;
+    // NOTE: bufferIndex is NOT reset here — it persists between calls so that
+    // frames arriving across multiple calls are assembled correctly.
+    // (Resetting here broke the parser when called at high frequency on Core 1)
     while(port.available() > 0){
       inData = port.read();
       if (bufferIndex==0){

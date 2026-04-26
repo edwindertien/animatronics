@@ -32,9 +32,9 @@ extern void ProcessRS485Data(int ID, int dataLength, unsigned char *Data);
 
 void RS485Init(long bd, int RS485sr)
 {
-  Serial1.begin(bd);
   Serial1.setTX(0);
   Serial1.setRX(1);
+  Serial1.begin(bd);
   pinMode(RS485_SR, OUTPUT);
 }
 

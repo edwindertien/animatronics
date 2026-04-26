@@ -32,6 +32,7 @@ class Animation {
     // State tracking
     bool isPlaying();
     bool isPaused();
+    uint32_t elapsedSeconds() { return playing ? (millis() - startTime) / 1000 : 0; }
     
   private:
     const animationStep* animationData;

@@ -93,6 +93,7 @@ void Animation::update() {
     if (currentStep == (totalSteps - 1) && animationTimer > (totalSteps + PAUSE)) {
       currentStep = 0;
       animationTimer = 0;
+      startTime = millis();   // reset so OLED timer counts from 0 again
       paused = false;
 #ifdef ANIMATION_DEBUG
       Serial.println("---------- Restarting Animation ----------");
