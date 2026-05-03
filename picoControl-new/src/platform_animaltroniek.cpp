@@ -21,8 +21,8 @@ void configureMotors() {
 // Action list
 // ----------------------------------------------------------------------------
 Action myActionList[NUM_ACTIONS] = {
-    Action(10, 4, DIRECT),
-    Action(11, 5, DIRECT),
+    Action(SW(5,1), 4, DIRECT),
+    Action(SW(5,2), 5, DIRECT),
 };
 
 // ----------------------------------------------------------------------------

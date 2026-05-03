@@ -104,7 +104,7 @@ TMotor_ServoConnection servo_conn(CAN0);
 #ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, DEFAULT_STEPS);
-//Animation animation(expoAnimation, EXPO_STEPS);
+  // Animation animation(expoAnimation, EXPO_STEPS); // animal love uses EXPO steps as default!!
 #ifdef EXPO_KEY
 Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif

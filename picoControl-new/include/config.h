@@ -31,6 +31,7 @@
 #elif defined(ANIMAL_LOVE) || defined(LUMI)
 #define BOARD_V2 (1)
 #elif defined(ANIMALTRONIEK_KREEFT) || defined(ANIMALTRONIEK_VIS) || defined(ANIMALTRONIEK_SCHILDPAD)
+#define BOARD_V1 (1)
 #endif
 // SCUBA / AMI board version — edit the line that matches your hardware:
 #if defined(SCUBA) || defined(AMI)
@@ -188,7 +189,7 @@ extern const int saveValues[];
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
 #define ANIMATION_KEY        12  // mux ch 12 = switch bank D bit 0
-#define ANIMATION_KEY_STATE   2  // HIGH = SW(12,2)
+#define ANIMATION_KEY_STATE   1  // HIGH = SW(12,2)
 #define DEFAULT_STEPS 985
 #define ANIMATION_TRACK_H "Track-kreeft.h"
 #define BRAKE_TIMEOUT 30
@@ -215,12 +216,13 @@ extern const int saveValues[];
 //#define DEBUG              // uncomment to dump raw channel values to serial each tick
 //#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
 //#define RELAY_TEST         // uncomment to enable t/r serial commands for relay test
+#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
 #define ANIMATION_KEY_MUX   12  // mux channel 12 HIGH = start animation (bank D bit 0)
 #define ANIMATION_KEY       ANIMATION_KEY_MUX  // compatibility alias for main.cpp
-#define ANIMATION_KEY_STATE  2  // HIGH = SW(12,2)
+#define ANIMATION_KEY_STATE  1  // HIGH = SW(12,2)
 #define BRAKE_TIMEOUT 20
 #define NUM_ACTIONS 2
 #define DEFAULT_STEPS 1005
