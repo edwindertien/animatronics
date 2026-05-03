@@ -167,7 +167,7 @@ extern const int saveValues[];
 //#define AUDIO_DEBUG        // uncomment to trace audio play/pause to serial
 //#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick
 #define VOLUME_CHANNEL      CRSF_CH_ANALOG1  // channels[5]
-#define NUM_ACTIONS 22
+#define NUM_ACTIONS 24
 extern Action myActionList[NUM_ACTIONS];
 extern ActionSequence looking;
 #endif

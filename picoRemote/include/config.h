@@ -14,13 +14,13 @@
 //   switch decoding macros, and keypad bitmask helpers.
 //
 #define DEBUG (1)
-#define ANIMAL_LOVE (1)
+//#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ALAN (1)
 //#define LUMI (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
-//#define AMI (1)
+#define AMI (1)
 //#define SCUBA (1)
 //#define EXPERIMENTAL (1)
 

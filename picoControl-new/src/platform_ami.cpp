@@ -28,34 +28,36 @@ const int saveValues[] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // Actions using relays >15 require EXTRA_RELAY (GPIO) — verify hardware
 
 Action myActionList[NUM_ACTIONS] = {
-    Action(4,   -1, DIRECT, nullptr, 100,  1, &player1), // [0]  track 1       (mux 4)
-    Action(5,   -1, DIRECT, nullptr, 100,  2, &player1), // [1]  track 2       (mux 5)
-    Action(6,   -1, DIRECT, nullptr, 100,  4, &player1), // [2]  track 3       (mux 6)
-    Action(0,   11, DIRECT, nullptr, 100, 18, &player2), // [3]  zwaailicht    (mux 0)
-    Action(7,    4, DIRECT, nullptr, 100, 10, &player2), // [4]  achterklep op (mux 7)
-    Action(12,   5, DIRECT),                             // [5]  achterklep dicht (mux 12)
-    Action(1,    0, DIRECT, nullptr, 100,  8, &player2), // [6]  arm uit       (mux 1)
-    Action(2,    1, DIRECT, nullptr, 100,  7, &player2), // [7]  arm in        (mux 2, mid)
-    Action(KEY_ACTION(KEY_BIT_7),  6, DIRECT, nullptr, 100,  9, &player2), // [8]  motorkap open
-    Action(KEY_ACTION(KEY_BIT_4),  7, DIRECT),           // [9]  motorkap dicht
-    Action(KEY_ACTION(KEY_BIT_1), 14, DIRECT, nullptr, 100, 13, &player2), // [10] lift up
-    Action(KEY_ACTION(KEY_BIT_2), 15, DIRECT, nullptr, 100, 14, &player2), // [11] elevator release
-    Action(KEY_ACTION(KEY_BIT_3), 13, DIRECT),           // [12] elevator release back
-    Action(KEY_ACTION(KEY_BIT_8),  8, DIRECT, nullptr, 100, 12, &player2), // [13] vleugeldeur
-    Action(KEY_ACTION(KEY_BIT_9),  9, DIRECT),           // [14]
+    Action(SW(1,1),   -1, DIRECT, nullptr, 100,  1, &player1), // [0]  track 1       (mux 4)
+    Action(SW(2,1),   -1, DIRECT, nullptr, 100,  2, &player1), // [1]  track 2       (mux 5)
+    Action(SW(3,1),   -1, DIRECT, nullptr, 100,  4, &player1), // [2]  track 3       (mux 6)
+    Action(SW(0,1),   11, DIRECT, nullptr, 100, 19, &player2), // [3]  zwaailicht    (mux 0)
+    Action(SW(5,1),    4, DIRECT, nullptr, 100, 10, &player2), // [4]  achterklep op (mux 7)
+    Action(SW(5,2),   5, DIRECT),                             // [5]  achterklep dicht (mux 12)
+    Action(SW(8,1),    0, DIRECT, nullptr, 100,  8, &player2), // [6]  arm uit       (mux 1)
+    Action(SW(8,2),    1, DIRECT, nullptr, 100,  7, &player2), // [7]  arm in        (mux 2, mid)
+    Action(SW(6,1),  6, DIRECT, nullptr, 100,  9, &player2), // [8]  motorkap open
+    Action(SW(6,2),  7, DIRECT, nullptr, 100,  9, &player2),           // [9]  motorkap dicht
+    Action(SW(7,1), 14, DIRECT, nullptr, 100, 14, &player2), // [10] lift up
+    Action(SW(7,2), 15, DIRECT, nullptr, 100, 15, &player2), // [11] elevator release
+    Action(KEY_ACTION(KEY_BIT_1), 13, DIRECT),           // [12] elevator release back
+    Action(SW(4,1),  8, DIRECT, nullptr, 100, 13, &player2), // [13] vleugeldeur
+    Action(SW(4,2),  9, DIRECT, nullptr, 100, 13, &player2),           // [14] vleugeldeur terug
     Action(-1,   2, DIRECT),                             // [15] hoofd (internal only)
-    Action(-1,   3, TRIGGER, nullptr, 100, 15, &player2),// [16] grill (internal only)
-    Action(KEY_ACTION(KEY_BIT_STAR), 10, DIRECT, nullptr, 100, 17, &player2), // [17] rook
-    Action(KEY_ACTION(KEY_BIT_0),  12, DIRECT),          // [18] toet2
+    Action(-1,   3, TRIGGER, nullptr, 100, 16, &player2),// [16] grill (internal only)
+    Action(KEY_ACTION(KEY_BIT_HASH), 10, DIRECT, nullptr, 100, 18, &player2), // [17] rook
+    Action(KEY_ACTION(KEY_BIT_3),  12, DIRECT),          // [18] toet2
     Action(KEY_ACTION(KEY_BIT_6),  11, DIRECT, nullptr, 100, 10, &player2),   // [19] bellen
     Action(-1,  13, DIRECT),                             // [20] adem (internal only)
     Action(-1,  14, DIRECT),                             // [21] spare
+    Action(KEY_ACTION(KEY_BIT_7),  -1, DIRECT, nullptr, 100, 4, &player2),   // [19] bellen
+    Action(KEY_ACTION(KEY_BIT_9),  -1, DIRECT, nullptr, 100, 5, &player2),   // [19] bellen
 };
 
 // ----------------------------------------------------------------------------
 // Sequence: looking animation
 // ----------------------------------------------------------------------------
-ActionSequence looking(12, DIRECT, true);  // mux 12 = 3-pos switch
+ActionSequence looking(SW(12,1), DIRECT, true);  // mux 12 = 3-pos switch
 
 static bool blink = false;
 
@@ -85,15 +87,15 @@ void platformSetup() {
 void platformLoop() {
     looking.update();
 
-    // Eye blink on '#' button
+    // Eye blink on '*' button
     extern int channels[];
     extern bool getRemoteKey(int bit);
-    if (getRemoteKey(KEY_BIT_HASH) && !blink) {
+    if (getRemoteKey(KEY_BIT_STAR) && !blink) {
         blink = true;
-        audioQueue.enqueue(AUDIO_PLAY, 2, 16);  // eye blink sound on player2
+        audioQueue.enqueue(AUDIO_PLAY, 2, 17);  // eye blink sound on player2
         RS485WriteByte(10, 2, 0);
         delay(1);
-    } else if (!getRemoteKey(KEY_BIT_HASH) && blink) {
+    } else if (!getRemoteKey(KEY_BIT_STAR) && blink) {
         blink = false;
         RS485WriteByte(10, 2, 90);
         delay(1);
