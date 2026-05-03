@@ -122,6 +122,8 @@ void RS485Write(int id, int address, int value) {
 }
 void RS485WriteByte(int id, int address, int value) {
   // calculate checksum
+  //if(id==10){Serial.print(id);Serial.print(',');Serial.print(address);Serial.print(',');Serial.println(value);}
+  //delay(1);
   unsigned char checksum = ~(id + 0x04 + 0x03 + address + value);
   unsigned char buffer[] = {
     (byte)0xFF, (byte)0xFF, // Header
@@ -133,6 +135,7 @@ void RS485WriteByte(int id, int address, int value) {
     (byte)checksum
   };
   RS485WriteBuf(buffer, 8);
+
 }
 
 
@@ -162,6 +165,7 @@ void RS485WriteBuf(unsigned char *buffer, int length) {
   Serial1.write((uint8_t*)buffer, length);
   Serial1.flush(); // waits for the buffer to be empty
   digitalWrite(RS485_SR, LOW);
+  delayMicroseconds(400);
 }
 
 void RS485WriteBuffer(int id, unsigned char *buffer, int messagelength) {
