@@ -14,14 +14,14 @@
 //   switch decoding macros, and keypad bitmask helpers.
 //
 #define DEBUG (1)
-//#define ANIMAL_LOVE (1)
+#define ANIMAL_LOVE (1)
 //#define KLARA (1)
 //#define ALAN (1)
 //#define LUMI (1)
 //#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define AMI (1)
-#define SCUBA (1)
+//#define SCUBA (1)
 //#define EXPERIMENTAL (1)
 
 // ── Axis sources — used in main.cpp to fill CRSF_CH_AXIS_X1/Y1/X2/Y2 ────────
@@ -207,13 +207,13 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #define AXIS_Y1_SRC  17
 #define AXIS_X2_SRC  AXIS_NOT_CONNECTED
 #define AXIS_Y2_SRC  AXIS_NOT_CONNECTED
-#define ANALOG1_SRC  19
+#define ANALOG1_SRC  AXIS_NOT_CONNECTED
 #define ANALOG2_SRC  AXIS_NOT_CONNECTED
 #define ANALOG3_SRC  AXIS_NOT_CONNECTED
 #define ARM_MUX_CHANNEL 19
 
 int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-int switchChannel[] = {2,2,2,2,1,1,1,2,1,1,0,0,0,0,0,1};
+int switchChannel[] = {2,2,2,2,1,1,1,2,1,1,1,1,1,1,1,1};
 int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #endif
 

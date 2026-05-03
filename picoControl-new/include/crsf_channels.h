@@ -14,7 +14,7 @@
 #define CRSF_CH_ANALOG1         5   // Volume/speed pot (0-255)
 #define CRSF_CH_ANALOG2         6   // Spare analog
 #define CRSF_CH_ANALOG3         7   // Spare analog
-#define CRSF_CH_NUNCHUCK_BTN    8   // 0=none, 64=C, 128=Z, 192=both
+#define CRSF_CH_NUNCHUCK_BTN    8   // 0=none, 64=Z, 128=C, 192=both
 #define CRSF_CH_KEYPAD_LO       9   // Keypad bits 0-7
 #define CRSF_CH_KEYPAD_HI       10  // Keypad bits 8-11
 #define CRSF_CH_SW_MUX_0_3      11  // Switch bank A: mux channels 0-3
@@ -78,8 +78,8 @@
 #define CRSF_DISARMED(ch) ((ch)[CRSF_CH_ARM] <= 128)
 
 // ---------------------------------------------------------------------------
-// Nunchuck buttons: Z=128(2*64), C=64(1*64), both=192(3*64)
+// Nunchuck buttons: Z=64, C=128, both=192
 // ---------------------------------------------------------------------------
-#define NUNCHUCK_Z(ch)    ((ch)[CRSF_CH_NUNCHUCK_BTN] == 128 || (ch)[CRSF_CH_NUNCHUCK_BTN] == 192)
-#define NUNCHUCK_C(ch)    ((ch)[CRSF_CH_NUNCHUCK_BTN] == 64  || (ch)[CRSF_CH_NUNCHUCK_BTN] == 192)
+#define NUNCHUCK_Z(ch)    ((ch)[CRSF_CH_NUNCHUCK_BTN] == 64  || (ch)[CRSF_CH_NUNCHUCK_BTN] == 192)
+#define NUNCHUCK_C(ch)    ((ch)[CRSF_CH_NUNCHUCK_BTN] == 128 || (ch)[CRSF_CH_NUNCHUCK_BTN] == 192)
 #define NUNCHUCK_BOTH(ch) ((ch)[CRSF_CH_NUNCHUCK_BTN] == 192)

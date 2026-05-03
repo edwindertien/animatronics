@@ -29,6 +29,7 @@
 // config block below, and mirror it here.
 #if defined(DESKLIGHT) || defined(WASHMACHINE)
 #elif defined(ANIMAL_LOVE) || defined(LUMI)
+#define BOARD_V2 (1)
 #elif defined(ANIMALTRONIEK_KREEFT) || defined(ANIMALTRONIEK_VIS) || defined(ANIMALTRONIEK_SCHILDPAD)
 #endif
 // SCUBA / AMI board version — edit the line that matches your hardware:
@@ -85,13 +86,18 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0 (same as animaltroniek)
+#define ANIMATION_KEY        15  // mux channel 15
+#define ANIMATION_KEY_STATE   1  // MID = SW(15,1)
+#define RELAY_DEBUG        // trace relay ON/OFF to serial
+//#define RELAY_TEST         // uncomment to enable 't' serial command for relay test
+//#define AUDIO_DEBUG        // uncomment to trace audio play/pause to serial
+#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial
 #define EXPO_KEY (15)
-#define DEFAULT_STEPS 967
-#define EXPO_STEPS 985
+#define DEFAULT_STEPS 967  // was 967
+#define EXPO_STEPS 985  // was 985
 #define ANIMATION_TRACK_H "Track-animalove.h"
 #define BRAKE_TIMEOUT 30
-#define NUM_ACTIONS 6
+#define NUM_ACTIONS 7
 extern Motor motorLeft;
 extern Motor motorRight;
 extern Motor tandkrans;
@@ -181,7 +187,8 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0
+#define ANIMATION_KEY        12  // mux ch 12 = switch bank D bit 0
+#define ANIMATION_KEY_STATE   2  // HIGH = SW(12,2)
 #define DEFAULT_STEPS 985
 #define ANIMATION_TRACK_H "Track-kreeft.h"
 #define BRAKE_TIMEOUT 30
@@ -211,10 +218,9 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-// New protocol — channel indices from crsf_channels.h
-// ANIMATION_KEY: mux channel number that triggers animation playback
 #define ANIMATION_KEY_MUX   12  // mux channel 12 HIGH = start animation (bank D bit 0)
 #define ANIMATION_KEY       ANIMATION_KEY_MUX  // compatibility alias for main.cpp
+#define ANIMATION_KEY_STATE  2  // HIGH = SW(12,2)
 #define BRAKE_TIMEOUT 20
 #define NUM_ACTIONS 2
 #define DEFAULT_STEPS 1005
@@ -242,7 +248,8 @@ extern const int saveValues[];
 #define CRSF_CHANNEL_OFFSET 3
 #define BRAKE_TIMEOUT 20
 #define NUM_ACTIONS 2
-#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0
+#define ANIMATION_KEY        12  // mux ch 12 = switch bank D bit 0
+#define ANIMATION_KEY_STATE   2  // HIGH = SW(12,2)
 #define DEFAULT_STEPS 2
 #define ANIMATION_TRACK_H "Track-schildpad.h"
 extern Motor motorLeft;

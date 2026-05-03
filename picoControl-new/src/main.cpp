@@ -104,6 +104,7 @@ TMotor_ServoConnection servo_conn(CAN0);
 #ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, DEFAULT_STEPS);
+//Animation animation(expoAnimation, EXPO_STEPS);
 #ifdef EXPO_KEY
 Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif
@@ -163,6 +164,21 @@ bool getRemoteKey(int bit) {
     return KEYPAD_PRESSED(channels[CRSF_CH_KEYPAD_LO],
                           channels[CRSF_CH_KEYPAD_HI], bit);
 }
+
+// ANIMATION_KEY_PRESSED — checks the animation key at the configured state.
+// ANIMATION_KEY_STATE: 0=low, 1=mid, 2=high (default). Set in config.h.
+#ifdef ANIMATION_KEY
+  #ifndef ANIMATION_KEY_STATE
+    #define ANIMATION_KEY_STATE 2
+  #endif
+  #if ANIMATION_KEY_STATE == 0
+    #define ANIMATION_KEY_PRESSED getRemoteSwitchLow(ANIMATION_KEY)
+  #elif ANIMATION_KEY_STATE == 1
+    #define ANIMATION_KEY_PRESSED getRemoteSwitchMid(ANIMATION_KEY)
+  #else
+    #define ANIMATION_KEY_PRESSED getRemoteSwitch(ANIMATION_KEY)
+  #endif
+#endif
 
 #ifdef USE_CRSF
 #include "core1_crsf.h"
@@ -370,8 +386,10 @@ void loop() {
         // Speed mode via nunchuck buttons (channels[8]):
         //   C+Z (both=192) = drive high speed
         //   C only (64)    = drive normal speed
-        //   Z only (128)   = eyelid mode, no drive
-        //   neither (0)    = stopped
+        //   C+Z both (192) = high speed
+        //   C only  (192 caught by BOTH first, then 64) = normal speed
+        //   Z only  (128) = eyelid mode, no drive
+        //   neither (0)   = stopped
         if (NUNCHUCK_BOTH(channels)) {
             brakeTimer = BRAKE_TIMEOUT;
             motorLeft.setSpeed( getLeftValueFromCrossMix( map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)), brakeState);
@@ -450,18 +468,18 @@ void loop() {
             Serial.print("SW banks: ");
             for (int i = 0; i < 4; i++) { Serial.print(sw[i], BIN); Serial.print(" "); }
             Serial.print(" animKey(mux"); Serial.print(ANIMATION_KEY);
-            Serial.print(")="); Serial.println(getRemoteSwitch(ANIMATION_KEY));
+            Serial.print(")="); Serial.println(ANIMATION_KEY_PRESSED);
         }
     }
 #endif
-    if (getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()) {
+    if (ANIMATION_KEY_PRESSED && !animation.isPlaying()) {
         animation.start();
 #ifdef USE_MOTOR
         motorLeft.setSpeed(0, brakeState);
         motorRight.setSpeed(0, brakeState);
 #endif
     }
-    if (animation.isPlaying() && !getRemoteSwitch(ANIMATION_KEY)) animation.stop();
+    if (animation.isPlaying() && !ANIMATION_KEY_PRESSED) animation.stop();
 #endif
 
 #ifdef EXPO_KEY

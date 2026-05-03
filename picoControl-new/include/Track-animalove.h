@@ -3,6 +3,7 @@
 
 #include "Animation.h"
 //#define STEPS 967
+
 const animationStep defaultAnimation[DEFAULT_STEPS] PROGMEM ={
 {134,126,0,0,0,0,16,0,0},
 {133,126,0,0,0,0,16,0,0},

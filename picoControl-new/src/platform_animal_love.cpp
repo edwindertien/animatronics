@@ -23,12 +23,13 @@ void configureMotors() {
 // Action list
 // ----------------------------------------------------------------------------
 Action myActionList[NUM_ACTIONS] = {
-    Action(0,  -1, DIRECT, &tandkrans,  100), // [0] krans forward
-    Action(1,  -1, DIRECT, &tandkrans, -100), // [1] krans reverse
-    Action(18,  0, DIRECT),                   // [2] poten
-    Action(2,   3, DIRECT),                   // [3] lift
-    Action(3,   4, DIRECT),                   // [4] lift
-    Action(7,   5, DIRECT),                   // [5] ratel
+    Action(SW(0,1),  -1, DIRECT, &tandkrans,  100), // [0] krans forward
+    Action(SW(0,2),  -1, DIRECT, &tandkrans, -100), // [1] krans reverse
+    Action(SW(9,1),   0, DIRECT),                   // [2] poten
+    Action(SW(1,1),   3, DIRECT),                   // [3] lift
+    Action(SW(1,2),   4, DIRECT),                   // [4] lift
+    Action(SW(3,2),   5, DIRECT),                   // [5] ratel
+    Action(SW(2,1),   7, DIRECT),                   // [6] sirene
 };
 
 // ----------------------------------------------------------------------------
