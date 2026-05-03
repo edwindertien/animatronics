@@ -4,7 +4,7 @@
 #include "Action.h"
 
 // You probably already have these in Action.h:
-extern bool getRemoteSwitch(char button);
+extern bool getRemoteSwitch(int mux_channel);
 
 // How many events max per sequence:
 #define MAX_SEQUENCE_EVENTS 16
@@ -23,7 +23,7 @@ struct ActionEvent {
 class ActionSequence {
 public:
   // button/mode just like Action, loop == true makes it continuous
-  ActionSequence(char button, int mode, bool loop = false);
+  ActionSequence(int button, int mode, bool loop = false);
 
   // Configure events (call this in setup())
   bool addEvent(uint32_t timestampMs, EventType type, Action* action);
@@ -42,7 +42,7 @@ private:
   void startInternal(uint32_t nowMs);
   void stopInternal();
 
-  char button_;
+  int button_;
   int mode_;            // DIRECT / TOGGLE / TRIGGER
   bool loop_;
 

@@ -20,6 +20,8 @@ public:
     PicoRelay();
     void begin();
     void writeRelay(int relaynr, bool state);
+    void relayTest();      // flash each relay 0-15 in sequence
+    void relayStatus();    // print I2C status to serial
 
 #if defined(EXTRA_RELAY)
 int relaypin[8] = {18,19,20,21,22,26,27,28};

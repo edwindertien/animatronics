@@ -1,6 +1,6 @@
 #include "ActionSequence.h"
 
-ActionSequence::ActionSequence(char button, int mode, bool loop)
+ActionSequence::ActionSequence(int button, int mode, bool loop)
   : button_(button),
     mode_(mode),
     loop_(loop),

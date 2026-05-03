@@ -31,3 +31,15 @@ void        crsfGetChannels(int* dst, int count); // atomic channel copy
 CrsfStatus  crsfGetStatus();                      // full diagnostic snapshot
 
 #endif // USE_CRSF
+// Link statistics (RSSI, LQ) — populated from 0x14 LINK_STATISTICS frames
+struct CrsfLinkStats {
+    int8_t  rssi_ant1;       // dBm, negative (e.g. -64). 0 = not yet received.
+    int8_t  rssi_ant2;       // dBm, 0 = antenna not present
+    uint8_t link_quality;    // 0-100 %
+    int8_t  snr;             // dB
+    int8_t  downlink_rssi;   // dBm (nanoRX → betafpv TX module)
+    uint8_t downlink_lq;     // 0-100 %
+};
+
+// Atomic snapshot of link stats for Core 0
+void crsfGetLinkStats(CrsfLinkStats& out);

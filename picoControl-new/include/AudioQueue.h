@@ -35,6 +35,13 @@ public:
         return ok;
     }
 
+    bool isEmpty() {
+        mutex_enter_blocking(&_mtx);
+        bool empty = (_head == _tail);
+        mutex_exit(&_mtx);
+        return empty;
+    }
+
     // Called from Core 1
     bool dequeue(AudioRequest& out) {
         mutex_enter_blocking(&_mtx);

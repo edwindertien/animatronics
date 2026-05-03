@@ -131,21 +131,37 @@ SoftwareSerial player2port(17, 16);
 #endif
 
 // ----------------------------------------------------------------------------
-// getRemoteSwitch — maps button/switch identifiers to channel values
+// getRemoteSwitch — new protocol using crsf_channels.h
+// mux_channel 0-15: reads switch banks in channels[11-14]
+// getRemoteKey(bit): reads keypad bitmask in channels[9-10]
 // ----------------------------------------------------------------------------
-bool getRemoteSwitch(char button) {
-    if ((button >= '0' && button <= '9') || button == '*' || button == '#') {
-#ifdef KEYPAD_CHANNEL
-        if (channels[KEYPAD_CHANNEL] == button) return true;
-#endif
-    }
-#ifdef SWITCH_CHANNEL
-    else if (button >= 0  && button < 8)  { if (channels[SWITCH_CHANNEL]   & 1 << button)       return true; }
-    else if (button >= 8  && button < 16) { if (channels[SWITCH_CHANNEL+1] & 1 << (button-8))   return true; }
-    else if (button >= 16 && button < 24) { if (channels[SWITCH_CHANNEL+2] & 1 << (button-16))  return true; }
-    else if (button >= 24 && button < 32) { if (channels[SWITCH_CHANNEL+3] & 1 << (button-24))  return true; }
-#endif
-    return false;
+#include "crsf_channels.h"
+
+// getRemoteSwitch  — mux channel HIGH (state=2)
+// getRemoteSwitchMid — mux channel MID (state=1, centre position)
+// getRemoteSwitchLow — mux channel LOW (state=0, default/off)
+// Use MUX_HIGH/MUX_MID/MUX_LOW macros in action lists.
+bool getRemoteSwitch(int mux_channel) {
+    uint8_t sw[4];
+    SWITCH_BUILD(sw, channels);
+    return SWITCH_HIGH(sw, mux_channel);   // state == 2
+}
+
+bool getRemoteSwitchMid(int mux_channel) {
+    uint8_t sw[4];
+    SWITCH_BUILD(sw, channels);
+    return SWITCH_MID(sw, mux_channel);    // state == 1
+}
+
+bool getRemoteSwitchLow(int mux_channel) {
+    uint8_t sw[4];
+    SWITCH_BUILD(sw, channels);
+    return SWITCH_LOW(sw, mux_channel);    // state == 0
+}
+
+bool getRemoteKey(int bit) {
+    return KEYPAD_PRESSED(channels[CRSF_CH_KEYPAD_LO],
+                          channels[CRSF_CH_KEYPAD_HI], bit);
 }
 
 #ifdef USE_CRSF
@@ -159,6 +175,12 @@ bool getRemoteSwitch(char button) {
 //////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
     Serial.begin(115200);
+    delay(200);  // give serial monitor time to connect
+    Serial.println(F("=== Animatronic Control ==="));
+#ifdef ANIMATION_TRACK_H
+    Serial.println(F("Track: " ANIMATION_TRACK_H));
+#endif
+    Serial.println(F("=========================="));
     pinMode(LED_BUILTIN, OUTPUT);
 
 #ifdef USE_DDSM
@@ -262,6 +284,23 @@ void loop() {
     static int mode = IDLE;
     static bool startedUp = false;
 
+#ifdef RELAY_TEST
+    // Serial command handler — type a command in serial monitor and press Enter:
+    //   't' = run relay test (flash all 16 relays one by one)
+    //   'r' = read back I2C status of relay board
+    if (Serial.available()) {
+        char cmd = Serial.read();
+        while (Serial.available()) Serial.read();  // flush rest of line
+        if (cmd == 't') {
+            Serial.println("=== RELAY TEST ===");
+            relay.relayTest();
+            Serial.println("=== RELAY TEST DONE ===");
+        } else if (cmd == 'r') {
+            relay.relayStatus();
+        }
+    }
+#endif
+
     // Poll functions that run outside the 20Hz gate
 #ifndef USE_CRSF
     RadioPoll();
@@ -296,7 +335,11 @@ void loop() {
         {
             for (int n = 0; n < NUM_CHANNELS; n++) channels[n] = fresh[n];
         }
-        channels[8] = fresh[8];
+        // Always update nunchuck and animation key channel regardless of playback state
+        channels[8] = fresh[8];  // CRSF_CH_NUNCHUCK_BTN
+#ifdef ANIMATION_KEY
+        channels[11 + (ANIMATION_KEY / 4)] = fresh[11 + (ANIMATION_KEY / 4)];
+#endif
         if (!startedUp) startedUp = true;
     }
 #endif
@@ -324,11 +367,16 @@ void loop() {
 #endif
     {
 #ifdef USE_SPEEDSCALING
-        if (channels[2] == 192) {
+        // Speed mode via nunchuck buttons (channels[8]):
+        //   C+Z (both=192) = drive high speed
+        //   C only (64)    = drive normal speed
+        //   Z only (128)   = eyelid mode, no drive
+        //   neither (0)    = stopped
+        if (NUNCHUCK_BOTH(channels)) {
             brakeTimer = BRAKE_TIMEOUT;
             motorLeft.setSpeed( getLeftValueFromCrossMix( map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)), brakeState);
             motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -HIGH_SPEED, HIGH_SPEED), map(channels[0], 255, 0, -HIGH_SPEED, HIGH_SPEED)), brakeState);
-        } else if (channels[2] == 128) {
+        } else if (NUNCHUCK_C(channels)) {
             brakeTimer = BRAKE_TIMEOUT;
             motorLeft.setSpeed( getLeftValueFromCrossMix( map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)), brakeState);
             motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -LOW_SPEED, LOW_SPEED), map(channels[0], 255, 0, -LOW_SPEED, LOW_SPEED)), brakeState);
@@ -344,14 +392,68 @@ void loop() {
     }
 #endif // USE_MOTOR
 
+#ifdef INPUT_DEBUG
+    {
+        static unsigned long _inputDumpTimer;
+        if (millis() - _inputDumpTimer > 500) {
+            _inputDumpTimer = millis();
+            uint8_t sw[4]; SWITCH_BUILD(sw, channels);
+            Serial.print("SW[0-3]:");
+            for (int i = 0; i < 16; i++) {
+                Serial.print(" "); Serial.print(i); Serial.print("=");
+                Serial.print(SWITCH_STATE(sw, i));
+            }
+            uint16_t keys = KEYPAD_BITMASK(channels[CRSF_CH_KEYPAD_LO],
+                                           channels[CRSF_CH_KEYPAD_HI]);
+            Serial.print("  KEYS:0x"); Serial.print(keys, HEX);
+            if (keys) {
+                const char kc[] = "147*2580369#";
+                Serial.print(" (");
+                for (int b = 0; b < 12; b++)
+                    if (keys & (1<<b)) { Serial.print(kc[b]); }
+                Serial.print(")");
+            }
+            Serial.print("  NUNCHUCK:"); Serial.println(channels[CRSF_CH_NUNCHUCK_BTN]);
+        }
+    }
+#endif
+
 #ifdef ANIMATION_DEBUG
-    Serial.print('{');
-    for (int i = 0; i < 9; i++) { Serial.print(channels[i]); if (i < 8) Serial.print(','); }
-    Serial.println("},");
+    // Records in animationStep struct field order — paste directly into Track-xxx.h:
+    // {xSetpoint, ySetpoint, buttons, keypad, volume, switches1, switches2, switches3, switches4}
+    // buttons = nunchuck byte (0=none, 64=C, 128=Z, 192=both) — mapped from CRSF_CH_NUNCHUCK_BTN
+    // keypad  = keypad lo byte (bits 0-7 of 12-key bitmask)
+    {
+        Serial.print('{');
+        Serial.print(channels[CRSF_CH_AXIS_X1]);         Serial.print(',');
+        Serial.print(channels[CRSF_CH_AXIS_Y1]);         Serial.print(',');
+        Serial.print(channels[CRSF_CH_NUNCHUCK_BTN]);   Serial.print(',');  // buttons (speed/nunchuck)
+        Serial.print(channels[CRSF_CH_KEYPAD_LO]);      Serial.print(',');  // keypad lo
+        Serial.print(channels[CRSF_CH_ANALOG1]);         Serial.print(',');  // volume
+        Serial.print(channels[CRSF_CH_SW_MUX_0_3]);     Serial.print(',');  // switches1
+        Serial.print(channels[CRSF_CH_SW_MUX_4_7]);     Serial.print(',');  // switches2
+        Serial.print(channels[CRSF_CH_SW_MUX_8_11]);    Serial.print(',');  // switches3
+        Serial.print(channels[CRSF_CH_SW_MUX_12_15]);                       // switches4
+        Serial.println("},");
+    }
 #endif
 
     // --- Animation playback (recorded tracks) ---
+    // DIRECT: plays while switch is held, loops. Stops on release.
 #ifdef ANIMATION_KEY
+#ifdef ANIMATION_KEY_DEBUG
+    {   // Dump switch banks to identify which mux channel the anim switch is on
+        static unsigned long _swDumpTimer;
+        if (millis() - _swDumpTimer > 1000) {
+            _swDumpTimer = millis();
+            uint8_t sw[4]; SWITCH_BUILD(sw, channels);
+            Serial.print("SW banks: ");
+            for (int i = 0; i < 4; i++) { Serial.print(sw[i], BIN); Serial.print(" "); }
+            Serial.print(" animKey(mux"); Serial.print(ANIMATION_KEY);
+            Serial.print(")="); Serial.println(getRemoteSwitch(ANIMATION_KEY));
+        }
+    }
+#endif
     if (getRemoteSwitch(ANIMATION_KEY) && !animation.isPlaying()) {
         animation.start();
 #ifdef USE_MOTOR
@@ -395,7 +497,36 @@ void loop() {
 #ifdef BUFFER_PASSTHROUGH
     {
         unsigned char headMessage[BUFFER_PASSTHROUGH];
-        for (int i = 0; i < BUFFER_PASSTHROUGH; i++) headMessage[i] = channels[i];
+        // Assemble buffer in the layout the receiving unit expects.
+        // Old protocol positions preserved so the receiver doesn't need changing:
+        // [0] = X axis
+        // [1] = Y axis
+        // [2] = speed mode: 192=high (nunchuck C), 128=low (nunchuck Z), 0=stop
+        // [3] = keypad: first pressed key as ASCII char (0 if none)
+        // [4] = volume (analog1)
+        // [5] = switch bank 0-7  (mux ch 0-3 packed as 2 bits each in channels[11])
+        // [6] = switch bank 8-15 (mux ch 4-7 in channels[12])
+        // [7] = switch bank 16-23 (mux ch 8-11 in channels[13])
+        // [8] = switch bank 24-31 (mux ch 12-15 in channels[14])
+        headMessage[0] = channels[CRSF_CH_AXIS_X1];
+        headMessage[1] = channels[CRSF_CH_AXIS_Y1];
+        // Raw nunchuck buttons — receiving unit interprets: 0=none, 64=C, 128=Z, 192=both
+        headMessage[2] = channels[CRSF_CH_NUNCHUCK_BTN];
+        // Keypad: find first pressed key, encode as ASCII
+        {
+            uint16_t keys = KEYPAD_BITMASK(channels[CRSF_CH_KEYPAD_LO],
+                                           channels[CRSF_CH_KEYPAD_HI]);
+            const char keyChars[] = "147*2580369#";
+            headMessage[3] = 0;
+            for (int b = 0; b < 12; b++) {
+                if (keys & (1 << b)) { headMessage[3] = keyChars[b]; break; }
+            }
+        }
+        headMessage[4] = channels[CRSF_CH_ANALOG1];
+        headMessage[5] = channels[CRSF_CH_SW_MUX_0_3];
+        headMessage[6] = channels[CRSF_CH_SW_MUX_4_7];
+        headMessage[7] = channels[CRSF_CH_SW_MUX_8_11];
+        headMessage[8] = channels[CRSF_CH_SW_MUX_12_15];
         RS485WriteBuffer(13, headMessage, BUFFER_PASSTHROUGH);
 
 #ifdef RS485_DEBUG
@@ -407,7 +538,9 @@ void loop() {
                 Serial.print(headMessage[i]);
                 Serial.print(" ");
             }
-            Serial.print("  [mode=");
+            Serial.print("  nunchuck_raw=");
+            Serial.print(channels[CRSF_CH_NUNCHUCK_BTN]);
+            Serial.print(" [mode=");
             Serial.print(mode == ACTIVE ? "ACTV" : "IDLE");
             Serial.print(" rf=");
             Serial.print(crsfReady() ? "OK" : "NO");
@@ -422,14 +555,14 @@ void loop() {
     else
         RS485WriteByte(22, 1, 127);
 
-    if (channels[2] == 192) {
+    if (NUNCHUCK_BOTH(channels)) {
         if      (channels[1] < 110 && mode == ACTIVE && !ANIM_PLAYING())
             RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, FAST_SPEED, 0), 0, FAST_SPEED));
         else if (channels[1] > 135 && mode == ACTIVE && !ANIM_PLAYING())
             RS485WriteByte(18, 1, constrain(map(channels[1], 135, 255, 0, FAST_SPEED), 0, FAST_SPEED));
         else
             RS485WriteByte(18, 2, 0);
-    } else if (channels[2] == 128) {
+    } else if (NUNCHUCK_C(channels)) {
         if      (channels[1] < 110 && mode == ACTIVE && !ANIM_PLAYING())
             RS485WriteByte(18, 3, constrain(map(channels[1], 0, 110, SLOW_SPEED, 0), 0, SLOW_SPEED));
         else if (channels[1] > 135 && mode == ACTIVE && !ANIM_PLAYING())
@@ -536,40 +669,21 @@ void loop() {
 // CORE 1 — USB joystick (LUMI) and platform Core 1 tasks
 //////////////////////////////////////////////////////////////////////////////////////////////
 void setup1() {
-    // Wait until Core 0 has finished all hardware initialisation.
-    // setup1() starts concurrently with setup() on RP2040 — without this
-    // barrier, Core 1 may touch Serial2/I2C/SPI before Core 0 has configured them.
+    // Wait until Core 0 has finished all hardware initialisation including audioInit().
     extern volatile bool _core0SetupDone;
     while (!_core0SetupDone) tight_loop_contents();
 
-#ifdef USB_JOYSTICK
-    Joystick.begin();
-#endif
 #ifdef USE_CRSF
-    crsfCore1Setup();   // CRSF reception runs entirely on Core 1
+    crsfCore1Setup();
 #endif
-    platformSetup1();   // vehicle-specific Core 1 init (e.g. Lumi/Scuba audio)
+    platformSetup1();   // now always empty or near-empty (no blocking calls)
 }
 
 void loop1() {
 #ifdef USE_CRSF
-    crsfCore1Loop();    // runs as fast as possible — no 20Hz gate
+    crsfCore1Loop();    // Core 1: CRSF only — no audio, no blocking calls
 #endif
-
-    static unsigned long looptime1;
-    if (millis() < looptime1 + 49) return;
-    looptime1 = millis();
-
-#ifdef USB_JOYSTICK
-    Joystick.X(map(channels[2], 0, 255, 0, 1023));
-    Joystick.Y(map(channels[3], 0, 255, 0, 1023));
-    Joystick.Z(map(channels[5], 0, 255, 0, 1023));
-    Joystick.Zrotate(map(channels[9], 0, 255, 0, 1023));
-    if (channels[11] & 1 << 4) Joystick.button(1, true); else Joystick.button(1, false);
-    if (channels[11] & 1 << 6) Joystick.button(4, true); else Joystick.button(4, false);
-#endif
-
-    platformLoopCore1(); // vehicle-specific Core 1 work (audio etc.)
+    platformLoopCore1(); // empty for all vehicles — kept for future use
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -593,78 +707,184 @@ void ProcessRadioData(int ID, int dataLength, unsigned char *Data) {
 // OLED screen
 //////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef USE_OLED
+
+// ── Draw helpers (identical layout to picoRemote transmitter) ─────────────────
+
+static void drawJoystick(int cx, int cy, int r, int xVal, int yVal, bool invertY = false) {
+    display.drawCircle(cx, cy, r, SSD1306_WHITE);
+    display.drawLine(cx, cy-r+1, cx, cy+r-1, SSD1306_WHITE);
+    display.drawLine(cx-r+1, cy, cx+r-1, cy, SSD1306_WHITE);
+    int dx = map(xVal, 0, 255, cx-r+2, cx+r-2);
+    int dy = invertY ? map(yVal, 0, 255, cy+r-2, cy-r+2)
+                     : map(yVal, 0, 255, cy-r+2, cy+r-2);
+    display.fillCircle(dx, dy, 2, SSD1306_WHITE);
+}
+
+// 3 bars bottom-anchored at y. rssi_dbm is negative: -40=full, -100=empty.
+static void drawSignalBars(int x, int y, int rssi_dbm) {
+    int strength = constrain(map(rssi_dbm, -100, -40, 0, 3), 0, 3);
+    int heights[3] = {3, 5, 7};
+    for (int i = 0; i < 3; i++) {
+        int bx = x + i * 4, bh = heights[i];
+        if (i < strength) display.fillRect(bx, y-bh+1, 3, bh, SSD1306_WHITE);
+        else              display.drawRect(bx, y-bh+1, 3, bh, SSD1306_WHITE);
+    }
+}
+
+// Horizontal volume bar labelled "v".
+static void drawVolBar(int x, int y, int val) {
+    display.setCursor(x, y);
+    display.setTextSize(1); display.setTextColor(SSD1306_WHITE);
+    display.print("v");
+    int bx = x+7, bw = 30, bh = 4;
+    display.drawRect(bx, y, bw, bh, SSD1306_WHITE);
+    int fill = map(val, 0, 255, 0, bw-2);
+    if (fill > 0) display.fillRect(bx+1, y+1, fill, bh-2, SSD1306_WHITE);
+}
+
+// 4×4 switch grid (16 mux channels). dot=low, square=mid, filled=high.
+static void drawSwitches(int x, int y, uint8_t sw[4]) {
+    for (int i = 0; i < 16; i++) {
+        int state = SWITCH_STATE(sw, i);
+        int px = x + (i%4)*5, py = y + (i/4)*5;
+        if      (state == 2) display.fillRect(px, py, 4, 4, SSD1306_WHITE);
+        else if (state == 1) display.drawRect(px, py, 4, 4, SSD1306_WHITE);
+        else                 display.drawPixel(px+2, py+2, SSD1306_WHITE);
+    }
+}
+
+// 3×4 keypad grid (12 keys). filled=pressed, dot=unpressed.
+static void drawKeypad(int x, int y, uint16_t keyBits) {
+    for (int i = 0; i < 12; i++) {
+        int px = x + (i/4)*5, py = y + (i%4)*4;
+        if ((keyBits >> i) & 1) display.fillRect(px, py, 4, 3, SSD1306_WHITE);
+        else                    display.drawPixel(px+2, py+1, SSD1306_WHITE);
+    }
+}
+
+// Animation track indicator (replaces battery from transmitter layout).
+// Shows stripped track name and elapsed seconds if playing.
+
+// ── processScreen ─────────────────────────────────────────────────────────────
+//
+//  Layout (128×32 px) — mirrors picoRemote transmitter, battery→animtrack:
+//
+//  y=0     [NAME+mode (0)] [animtrack (38)] [LQ:xx% (84)]
+//  y=9-28  [J1 r=9 @(10,19)] [C/Z dots @21] [J2 r=9 @(34,19)]
+//          [switches 4×4 @(44,11)] [keypad 3×4 @(65,11)]
+//          [signal bars @(84,15)] [dBm text @(97,9)]
+//          [vol bar @(84,24)]
+//
 void processScreen(int mode, int position) {
-    static int menu = 1;
     display.clearDisplay();
 #ifdef OLED_ROTATE
     display.setRotation(2);
 #endif
-    if (menu == 1) {
-        display.setTextSize(1);
-        display.setTextColor(SSD1306_WHITE);
-        // --- Top line ---
-        // x=0:  RF link status (7 chars)
-        // x=42: mode ACTV/IDLE
-        // x=80: animation/sequence status + platform text (right end)
-        display.setCursor(0, 0);
-#ifdef USE_CRSF
-        CrsfStatus cs = crsfGetStatus();
-        switch (cs.linkState) {
-            case CRSF_LINK_WAITING: display.print(F("RF:WAIT")); break;
-            case CRSF_LINK_ACTIVE:  display.print(F("RF:OK  ")); break;
-            case CRSF_LINK_LOST:    display.print(F("RF:LST")); break;
-        }
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+
+    // ── Top row: fixed positions ──────────────────────────────────────────────
+    // x=0:  name (max 6 chars)
+    // x=20: act/idle (3-4 chars)
+    // x=44: sq:Xs when playing (max 6 chars), blank otherwise
+    // x=86: LQ:xxx% (7 chars, ends at x=128)
+    display.setCursor(0, 0);
+#if defined(SCUBA)
+    display.print("SCU");
+#elif defined(AMI)
+    display.print("AMI");
+#elif defined(LUMI)
+    display.print("LUM");
+#elif defined(ANIMALTRONIEK_KREEFT)
+    display.print("KRE");
+#elif defined(ANIMALTRONIEK_VIS)
+    display.print("VIS");
+#elif defined(ANIMALTRONIEK_SCHILDPAD)
+    display.print("SCH");
+#elif defined(ANIMAL_LOVE)
+    display.print("LOV");
+#elif defined(WASHMACHINE)
+    display.print("WAS");
 #else
-        if (mode == ACTIVE) display.print(F("RF:--- "));
-        else                display.print(F("RF:--- "));
+    display.print("?");
 #endif
-        display.setCursor(42, 0);
-        if (mode == ACTIVE) display.print(F("ACTV"));
-        if (mode == IDLE)   display.print(F("IDLE"));
 
-        display.setCursor(80, 0);
+    display.setCursor(20, 0);
+    display.print(mode == ACTIVE ? "act" : "idle");
+
+    display.setCursor(44, 0);
 #ifdef ANIMATION_KEY
-        if (animation.isPlaying()) {
-            display.print(F("seq "));
-            display.print(animation.elapsedSeconds());
-            display.print(F("s"));
-        } else
-#endif
-#ifdef EXPO_KEY
-        if (expanimation.isPlaying())      { display.print(F("expo")); }
-        else
-#endif
-        platformScreen();   // vehicle-specific (e.g. "jaws", "look")
-
-        // --- Bar graph: channels 0-13, y=8..32 ---
-        for (int n = 0; n < NUM_CHANNELS - 2; n++)
-            display.fillRect(n * 6, 32 - channels[n] / 8, 4, 32, SSD1306_INVERSE);
-
-        // Encoder position bar on right edge
-        display.fillRect(124, 0, 4, position, SSD1306_WHITE);
-
-        // --- Bottom-right: keypad indicator (x=92, y=24) ---
-#ifdef KEYPAD_CHANNEL
-        if (channels[KEYPAD_CHANNEL] > 1) {
-            display.setCursor(110, 24);
-            display.print((char)(channels[KEYPAD_CHANNEL]));
-        }
-#endif
-
-    } else if (menu == 2) {
-        display.setCursor(0, 0);
-        display.setTextSize(1);
-        display.setTextColor(SSD1306_WHITE);
-        display.println(F("1234567890 actions"));
-#ifdef NUM_ACTIONS
-        for (int i = 0; i < NUM_ACTIONS; i++) {
-            if (myActionList[i].getState() == 1)
-                display.fillRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
-            else
-                display.drawRect(i * 6, 9, 5, 5, SSD1306_INVERSE);
-        }
-#endif
+    if (animation.isPlaying()) {
+        display.print("sq:");
+        display.print(animation.elapsedSeconds());
+        display.print("s");
+    } else {
+        platformScreen();   // e.g. "jaws" when jaws sequence is playing
     }
+#else
+    platformScreen();
+#endif
+
+#ifdef USE_CRSF
+    CrsfLinkStats ls;
+    crsfGetLinkStats(ls);
+    display.setCursor(86, 0);
+    display.print("LQ:");
+    display.print(ls.link_quality);
+    display.print("%");
+#endif
+
+    // ── Joystick 1 (x=10, y=19, r=9) — nunchuck Y inverted ──────────────────
+    drawJoystick(10, 19, 9, channels[CRSF_CH_AXIS_X1], channels[CRSF_CH_AXIS_Y1], true);
+
+    // ── Nunchuck C/Z button indicators at x=21 ───────────────────────────────
+    {
+        uint8_t btn = channels[CRSF_CH_NUNCHUCK_BTN];
+        if (btn == 128 || btn == 192) display.fillRect(21, 13, 3, 3, SSD1306_WHITE); // Z
+        if (btn == 64  || btn == 192) display.fillRect(21, 19, 3, 3, SSD1306_WHITE); // C
+    }
+
+    // ── Joystick 2 (x=34, y=19, r=9) — only draw dot when connected ──────────
+    {
+        int x2 = channels[CRSF_CH_AXIS_X2];
+        int y2 = channels[CRSF_CH_AXIS_Y2];
+        bool connected = !(x2 == 0 && y2 == 0);  // 0,0 = not transmitted
+        // Draw circle + crosshair always, but only fill dot if connected
+        display.drawCircle(34, 19, 9, SSD1306_WHITE);
+        display.drawLine(34, 11, 34, 27, SSD1306_WHITE);
+        display.drawLine(26, 19, 42, 19, SSD1306_WHITE);
+        if (connected) {
+            int dx = map(x2, 0, 255, 26, 42);
+            int dy = map(y2, 0, 255, 11, 27);
+            display.fillCircle(dx, dy, 2, SSD1306_WHITE);
+        }
+    }
+
+    // ── Switches 4×4 grid at x=44, y=11 ─────────────────────────────────────
+    {
+        uint8_t sw[4];
+        SWITCH_BUILD(sw, channels);
+        drawSwitches(44, 11, sw);
+    }
+
+    // ── Keypad 3×4 grid at x=65, y=11 ───────────────────────────────────────
+    {
+        uint16_t keys = KEYPAD_BITMASK(channels[CRSF_CH_KEYPAD_LO],
+                                       channels[CRSF_CH_KEYPAD_HI]);
+        drawKeypad(65, 11, keys);
+    }
+
+    // ── Signal bars + dBm at x=84 ────────────────────────────────────────────
+#ifdef USE_CRSF
+    drawSignalBars(84, 15, (int)ls.rssi_ant1);
+    display.setCursor(97, 9);
+    display.print((int)ls.rssi_ant1);
+    display.print("d");
+#endif
+
+    // ── Volume bar at x=84, y=24 ─────────────────────────────────────────────
+    drawVolBar(84, 24, channels[CRSF_CH_ANALOG1]);
+
     display.display();
 }
 #endif

@@ -1,6 +1,6 @@
 # PicoRemote — Universal RC Transmitter
 
-A multi-vehicle RC transmitter built on the Raspberry Pi Pico (RP2040) using the earlephilhower Arduino core. Communicates over ELRS 4.x via CRSF at 420000 baud, with bidirectional telemetry. One codebase covers all vehicles — select the target in `config.h`.
+A multi-vehicle RC transmitter built on the Raspberry Pi Pico (RP2040) using the earlephilhower Arduino core. Communicates over ELRS 4.x via CRSF at 420000 baud, with bidirectional [telemetry](https://betaflight.com/docs/wiki/guides/current/Telemetry). One codebase covers all vehicles — select the target in `config.h`.
 
 ---
 

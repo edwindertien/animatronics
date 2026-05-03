@@ -18,10 +18,10 @@
 //#define KLARA (1)
 //#define ALAN (1)
 //#define LUMI (1)
-#define ANIMALTRONIEK_VIS (1)
+//#define ANIMALTRONIEK_VIS (1)
 //#define ANIMALTRONIEK_KREEFT (1)
 //#define AMI (1)
-//#define SCUBA (1)
+#define SCUBA (1)
 //#define EXPERIMENTAL (1)
 
 // ── Axis sources — used in main.cpp to fill CRSF_CH_AXIS_X1/Y1/X2/Y2 ────────
@@ -105,13 +105,13 @@ int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #define ARM_MUX_CHANNEL 12  // vol pot also acts as arm signal (above mid = armed)
 
 
-int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // ch8 enabled for vol
-int switchChannel[] = {2,2,2,2,2,2,2,2,0,1,1,1,1,1,1,1};  // ch8 is analog, not a switch
-int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+// int usedChannel[]   = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};  // ch8 enabled for vol
+// int switchChannel[] = {2,2,2,2,2,2,2,2,0,1,1,1,1,1,1,1};  // ch8 is analog, not a switch
+// int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-//int usedChannel[]   = {1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,1};  // ch8 enabled for vol
-//int switchChannel[] = {1,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0};  // ch8 is analog, not a switch
-//int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+int usedChannel[]   = {1,1,1,1,0,0,0,0,1,0,0,0,0,0,0,1};  // ch8 enabled for vol
+int switchChannel[] = {1,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0};  // ch8 is analog, not a switch
+int invertChannel[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 #endif
 
 

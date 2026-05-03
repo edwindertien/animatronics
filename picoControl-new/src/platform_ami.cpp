@@ -3,6 +3,7 @@
 #include "config.h"
 #include "platform.h"
 #include "Audio.h"
+#include "AudioQueue.h"
 #include "RS485Reader.h"
 
 const int saveValues[] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -10,35 +11,51 @@ const int saveValues[] = { 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 // ----------------------------------------------------------------------------
 // Action list
 // ----------------------------------------------------------------------------
+// AMI transmitter switch mapping (from switchChannel[] in picoRemote config.h):
+// mux 0  = 3-pos switch
+// mux 1  = 3-pos switch
+// mux 2  = 3-pos switch
+// mux 3  = unused
+// mux 4  = 2-pos switch
+// mux 5  = 2-pos switch
+// mux 6  = 2-pos switch
+// mux 7  = 2-pos switch
+// mux 8-11 = unused
+// mux 12 = 3-pos switch
+// mux 13-15 = unused
+//
+// Relay board V1 (PCA9685): channels 0-15 only
+// Actions using relays >15 require EXTRA_RELAY (GPIO) — verify hardware
+
 Action myActionList[NUM_ACTIONS] = {
-    Action(2,   -1, DIRECT, nullptr, 100,  1, &player1), // [0]  track 1
-    Action(4,   -1, DIRECT, nullptr, 100,  2, &player1), // [1]  track 2
-    Action(6,   -1, DIRECT, nullptr, 100,  4, &player1), // [2]  track 3
-    Action(0,   11, DIRECT, nullptr, 100, 18, &player2), // [3]  zwaailicht
-    Action(10,   4, DIRECT, nullptr, 100, 10, &player2), // [4]  achterklep open
-    Action(11,   5, DIRECT),                             // [5]  achterklep dicht
-    Action(16,   0, DIRECT, nullptr, 100,  8, &player2), // [6]  arm uit
-    Action(17,   1, DIRECT, nullptr, 100,  7, &player2), // [7]  arm in
-    Action(12,  22, DIRECT, nullptr, 100,  9, &player2), // [8]  motorkap open
-    Action(13,  23, DIRECT),                             // [9]  motorkap dicht
-    Action(14,  14, DIRECT, nullptr, 100, 13, &player2), // [10] lift up
-    Action(15,  21, DIRECT, nullptr, 100, 14, &player2), // [11] elevator release
-    Action('1', 20, DIRECT),                             // [12] elevator release back
-    Action(8,   15, DIRECT, nullptr, 100, 12, &player2), // [13] vleugeldeur
-    Action(9,   12, DIRECT),                             // [14]
-    Action('-',  2, DIRECT),                             // [15] hoofd
-    Action('-',  8, TRIGGER, nullptr, 100, 15, &player2),// [16] grill
-    Action('3', 19, DIRECT),                             // [17] toet
-    Action('*', 16, DIRECT, nullptr, 100, 17, &player2), // [18] rook
-    Action('4', 18, DIRECT),                             // [19] toet2
-    Action('6', 17, DIRECT, nullptr, 100, 10, &player2), // [20] bellen
-    Action('-', 13, DIRECT),                             // [21] adem
+    Action(4,   -1, DIRECT, nullptr, 100,  1, &player1), // [0]  track 1       (mux 4)
+    Action(5,   -1, DIRECT, nullptr, 100,  2, &player1), // [1]  track 2       (mux 5)
+    Action(6,   -1, DIRECT, nullptr, 100,  4, &player1), // [2]  track 3       (mux 6)
+    Action(0,   11, DIRECT, nullptr, 100, 18, &player2), // [3]  zwaailicht    (mux 0)
+    Action(7,    4, DIRECT, nullptr, 100, 10, &player2), // [4]  achterklep op (mux 7)
+    Action(12,   5, DIRECT),                             // [5]  achterklep dicht (mux 12)
+    Action(1,    0, DIRECT, nullptr, 100,  8, &player2), // [6]  arm uit       (mux 1)
+    Action(2,    1, DIRECT, nullptr, 100,  7, &player2), // [7]  arm in        (mux 2, mid)
+    Action(KEY_ACTION(KEY_BIT_7),  6, DIRECT, nullptr, 100,  9, &player2), // [8]  motorkap open
+    Action(KEY_ACTION(KEY_BIT_4),  7, DIRECT),           // [9]  motorkap dicht
+    Action(KEY_ACTION(KEY_BIT_1), 14, DIRECT, nullptr, 100, 13, &player2), // [10] lift up
+    Action(KEY_ACTION(KEY_BIT_2), 15, DIRECT, nullptr, 100, 14, &player2), // [11] elevator release
+    Action(KEY_ACTION(KEY_BIT_3), 13, DIRECT),           // [12] elevator release back
+    Action(KEY_ACTION(KEY_BIT_8),  8, DIRECT, nullptr, 100, 12, &player2), // [13] vleugeldeur
+    Action(KEY_ACTION(KEY_BIT_9),  9, DIRECT),           // [14]
+    Action(-1,   2, DIRECT),                             // [15] hoofd (internal only)
+    Action(-1,   3, TRIGGER, nullptr, 100, 15, &player2),// [16] grill (internal only)
+    Action(KEY_ACTION(KEY_BIT_STAR), 10, DIRECT, nullptr, 100, 17, &player2), // [17] rook
+    Action(KEY_ACTION(KEY_BIT_0),  12, DIRECT),          // [18] toet2
+    Action(KEY_ACTION(KEY_BIT_6),  11, DIRECT, nullptr, 100, 10, &player2),   // [19] bellen
+    Action(-1,  13, DIRECT),                             // [20] adem (internal only)
+    Action(-1,  14, DIRECT),                             // [21] spare
 };
 
 // ----------------------------------------------------------------------------
 // Sequence: looking animation
 // ----------------------------------------------------------------------------
-ActionSequence looking(24, DIRECT, true);
+ActionSequence looking(12, DIRECT, true);  // mux 12 = 3-pos switch
 
 static bool blink = false;
 
@@ -57,10 +74,11 @@ static void configureSequences() {
 // Platform interface
 // ----------------------------------------------------------------------------
 void platformSetup() {
-    RS485WriteByte(18, 1, 1);   // motor active
+    audioInit();            // blocking init on Core 0 — done before Core 1 starts
+    RS485WriteByte(18, 1, 1);
     delay(300);
-    RS485WriteByte(18, 2, 0);   // motor neutral
-    RS485WriteByte(22, 1, 127); // steer neutral
+    RS485WriteByte(18, 2, 0);
+    RS485WriteByte(22, 1, 127);
     configureSequences();
 }
 
@@ -69,14 +87,13 @@ void platformLoop() {
 
     // Eye blink on '#' button
     extern int channels[];
-    extern bool getRemoteSwitch(char);
-    if (getRemoteSwitch('#') && !blink) {
+    extern bool getRemoteKey(int bit);
+    if (getRemoteKey(KEY_BIT_HASH) && !blink) {
         blink = true;
-        player2port.listen();
-        player2.playFileNum(16);
+        audioQueue.enqueue(AUDIO_PLAY, 2, 16);  // eye blink sound on player2
         RS485WriteByte(10, 2, 0);
         delay(1);
-    } else if (!getRemoteSwitch('#') && blink) {
+    } else if (!getRemoteKey(KEY_BIT_HASH) && blink) {
         blink = false;
         RS485WriteByte(10, 2, 90);
         delay(1);
@@ -97,13 +114,8 @@ void platformOnIdle() {
 }
 
 
-// Core 1 not used by this vehicle
-void platformSetup1() {
-    audioInit();        // SoftwareSerial for DFRobot players — off Core 0
-}
-
-void platformLoopCore1() {
-    drainAudioQueue();   // execute any play/pause requests from Core 0
-}
+// Core 1: only CRSF (handled by crsfCore1Loop) and audio queue draining
+void platformSetup1()    {}   // audioInit is on Core 0 in platformSetup()
+void platformLoopCore1() { drainAudioQueue(); }
 
 #endif // AMI

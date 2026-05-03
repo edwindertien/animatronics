@@ -15,6 +15,7 @@
 // ---------------------------------------------------------------------------
 #define CRSF_ADDR           0xC8
 #define CRSF_TYPE_RC        0x16
+#define CRSF_TYPE_LINK_STATS 0x14
 #define CRSF_EXPECTED_LEN   24      // value in the length field for an RC frame
 
 // ---------------------------------------------------------------------------
@@ -33,6 +34,10 @@ static uint32_t   _frameCount    = 0;
 static uint32_t   _crcErrors     = 0;
 static uint32_t   _restartCount  = 0;
 static uint32_t   _bytesReceived = 0;
+
+// Link statistics — written by Core 1 from 0x14 frames, read by Core 0
+static CrsfLinkStats _linkStats      = {};
+static bool          _linkStatsReady = false;
 
 // ---------------------------------------------------------------------------
 // Core 0 interface
@@ -57,6 +62,12 @@ CrsfStatus crsfGetStatus() {
     s.restarts   = _restartCount;
     mutex_exit(&_mtx);
     return s;
+}
+
+void crsfGetLinkStats(CrsfLinkStats& out) {
+    mutex_enter_blocking(&_mtx);
+    out = _linkStats;
+    mutex_exit(&_mtx);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +189,9 @@ static void _parseBytes() {
                     // Concise state-change messages only
                     if (_frameCount == 1) {
                         Serial.println("CRSF: ACTIVE (first frame)");
+                        Serial.print("CH8-14: ");
+                        for (int _i=8; _i<=14; _i++) { Serial.print(mapped[_i]); Serial.print(" "); }
+                        Serial.println();
                     } else if (wasLost) {
                         Serial.print("CRSF: ACTIVE (recovered after ");
                         Serial.print(_restartAttempt);
@@ -186,6 +200,22 @@ static void _parseBytes() {
                         _lostSinceMs    = 0;
                     }
 
+
+                } else if (_buf[2] == CRSF_TYPE_LINK_STATS && _frameLen >= 11) {
+                    // LINK_STATISTICS: payload at _buf[3]
+                    const uint8_t* p = &_buf[3];
+                    CrsfLinkStats ls;
+                    ls.rssi_ant1      = (int8_t)p[0];   // uplink RSSI ant1 (dBm, negative)
+                    ls.rssi_ant2      = (int8_t)p[1];   // uplink RSSI ant2
+                    ls.link_quality   = p[2];            // uplink LQ 0-100%
+                    ls.snr            = (int8_t)p[3];   // uplink SNR
+                    // p[4]=active_antenna p[5]=rf_mode p[6]=tx_power
+                    ls.downlink_rssi  = (int8_t)p[7];   // downlink RSSI
+                    ls.downlink_lq    = p[8];            // downlink LQ 0-100%
+                    mutex_enter_blocking(&_mtx);
+                    _linkStats      = ls;
+                    _linkStatsReady = true;
+                    mutex_exit(&_mtx);
                 } else if (expected != received) {
                     mutex_enter_blocking(&_mtx);
                     _crcErrors++;

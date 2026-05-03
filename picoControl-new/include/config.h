@@ -23,6 +23,20 @@
 
 // Now pull in Action/ActionSequence — USE_AUDIO is defined above so Audio.h
 // will see the correct level when Action.h includes it.
+// Board version — must be defined BEFORE Action.h/PicoRelay.h are included
+// so USE_9635/USE_9685 are set correctly when PicoRelay.h is processed.
+// SCUBA and AMI can run on V1 or V2 — set the correct version in their
+// config block below, and mirror it here.
+#if defined(DESKLIGHT) || defined(WASHMACHINE)
+#elif defined(ANIMAL_LOVE) || defined(LUMI)
+#elif defined(ANIMALTRONIEK_KREEFT) || defined(ANIMALTRONIEK_VIS) || defined(ANIMALTRONIEK_SCHILDPAD)
+#endif
+// SCUBA / AMI board version — edit the line that matches your hardware:
+#if defined(SCUBA) || defined(AMI)
+#define BOARD_V2 (1)   // uncomment for V2 board (PCA9635)
+//#define BOARD_V1 (1)     // uncomment for V1 board (PCA9685)
+#endif
+#include "crsf_channels.h"
 #include "Action.h"
 #include "ActionSequence.h"
 
@@ -30,7 +44,6 @@
 
 #ifdef DESKLIGHT
 #define USE_STS (1)
-#define BOARD_V3 (1)
 #define USE_OLED (1)
 #define OLED_ROTATE (1)
 #define USE_CRSF (1)
@@ -40,7 +53,6 @@ extern const int saveValues[];
 #endif
 
 #ifdef WASHMACHINE
-#define BOARD_V3 (1)
 #define USE_MOTOR (1)
 #define USE_M5_SERVOS (1)
 #define USE_SPEEDSCALING (1)
@@ -60,7 +72,6 @@ void configureMotors();
 #endif
 
 #ifdef ANIMAL_LOVE
-#define BOARD_V2 (1)
 #define NUM_CHANNELS 16
 extern const int saveValues[];
 #define USE_MOTOR (1)
@@ -74,10 +85,7 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
-#define ANIMATION_KEY (30)
+#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0 (same as animaltroniek)
 #define EXPO_KEY (15)
 #define DEFAULT_STEPS 967
 #define EXPO_STEPS 985
@@ -92,7 +100,6 @@ extern Action myActionList[NUM_ACTIONS];
 #endif
 
 #ifdef LUMI
-#define BOARD_V2 (1)
 #define USE_SPEEDSCALING (1)
 #define LOW_SPEED 60
 #define HIGH_SPEED 90
@@ -104,7 +111,6 @@ extern const int saveValues[];
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
 #define SWITCH_CHANNEL 12
-#define VOLUME_CHANNEL 4
 #define NUM_TRACKS 15
 extern const String tracklist[NUM_TRACKS];
 #define NUM_SAMPLES 6
@@ -116,7 +122,6 @@ extern Action myActionList[NUM_ACTIONS];
 #ifdef SCUBA
 #define NUM_CHANNELS 16
 extern const int saveValues[];
-#define BOARD_V2 (1)
 #define USE_SPEEDSCALING (1)
 #define LOW_SPEED 60
 #define HIGH_SPEED 90
@@ -126,9 +131,12 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
+//#define ANIMATION_DEBUG    // uncomment to record animation steps to serial
+#define RELAY_DEBUG        // trace relay ON/OFF to serial
+//#define RELAY_TEST         // uncomment to enable 't' serial command for relay test
+//#define AUDIO_DEBUG        // uncomment to trace audio play/pause to serial
+//#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial
+#define VOLUME_CHANNEL      CRSF_CH_ANALOG1  // channels[5]
 #define NUM_ACTIONS 13
 extern Action myActionList[NUM_ACTIONS];
 extern ActionSequence jaws;
@@ -137,7 +145,6 @@ extern ActionSequence jaws;
 #ifdef AMI
 #define NUM_CHANNELS 16
 extern const int saveValues[];
-#define BOARD_V2 (1)
 #define EXTRA_RELAY (1)
 #define USE_SPEEDSCALING (1)
 #define LOW_SPEED 60
@@ -148,9 +155,12 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
+//#define ANIMATION_DEBUG    // uncomment to record animation steps to serial
+//#define RELAY_DEBUG        // trace relay ON/OFF to serial
+//#define RELAY_TEST         // uncomment to enable t/r serial commands
+//#define AUDIO_DEBUG        // uncomment to trace audio play/pause to serial
+//#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick
+#define VOLUME_CHANNEL      CRSF_CH_ANALOG1  // channels[5]
 #define NUM_ACTIONS 22
 extern Action myActionList[NUM_ACTIONS];
 extern ActionSequence looking;
@@ -159,7 +169,6 @@ extern ActionSequence looking;
 #ifdef ANIMALTRONIEK_KREEFT
 #define NUM_CHANNELS 16
 extern const int saveValues[];
-#define BOARD_V1 (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -172,10 +181,7 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
-#define ANIMATION_KEY (24)
+#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0
 #define DEFAULT_STEPS 985
 #define ANIMATION_TRACK_H "Track-kreeft.h"
 #define BRAKE_TIMEOUT 30
@@ -189,7 +195,6 @@ extern Action myActionList[NUM_ACTIONS];
 #ifdef ANIMALTRONIEK_VIS
 #define NUM_CHANNELS 16
 extern const int saveValues[];
-#define BOARD_V1 (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -201,16 +206,17 @@ extern const int saveValues[];
 #define BUFFER_PASSTHROUGH 9
 //#define RS485_DEBUG        // uncomment to mirror RS485 TX to serial each tick
 //#define DEBUG              // uncomment to dump raw channel values to serial each tick
-#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
+//#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
+//#define RELAY_TEST         // uncomment to enable t/r serial commands for relay test
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
+// New protocol — channel indices from crsf_channels.h
+// ANIMATION_KEY: mux channel number that triggers animation playback
+#define ANIMATION_KEY_MUX   12  // mux channel 12 HIGH = start animation (bank D bit 0)
+#define ANIMATION_KEY       ANIMATION_KEY_MUX  // compatibility alias for main.cpp
 #define BRAKE_TIMEOUT 20
 #define NUM_ACTIONS 2
-#define ANIMATION_KEY (24)
 #define DEFAULT_STEPS 1005
 #define ANIMATION_TRACK_H "Track-vis.h"
 extern Motor motorLeft;
@@ -222,7 +228,6 @@ extern Action myActionList[NUM_ACTIONS];
 #ifdef ANIMALTRONIEK_SCHILDPAD
 #define NUM_CHANNELS 16
 extern const int saveValues[];
-#define BOARD_V1 (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 #define USE_SPEEDSCALING (1)
@@ -235,12 +240,9 @@ extern const int saveValues[];
 #define USE_OLED (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
-#define KEYPAD_CHANNEL 3
-#define VOLUME_CHANNEL 4
-#define SWITCH_CHANNEL 5
 #define BRAKE_TIMEOUT 20
 #define NUM_ACTIONS 2
-#define ANIMATION_KEY (24)
+#define ANIMATION_KEY  12  // mux ch 12 = switch bank D bit 0
 #define DEFAULT_STEPS 2
 #define ANIMATION_TRACK_H "Track-schildpad.h"
 extern Motor motorLeft;

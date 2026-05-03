@@ -76,26 +76,18 @@ static void processAudio() {
 // Platform interface
 // ----------------------------------------------------------------------------
 void platformSetup() {
-    // Lumi audio is initialised on Core 1 (audioInit() called in setup1())
-    // Nothing else needed here
+    audioInit();   // blocking init on Core 0 — done before Core 1 starts
 }
 
 void platformLoop() {
     extern int channels[];
-    extern bool getRemoteSwitch(char);
-
     if (getRemoteSwitch(0)) relay.joystickToRelays(channels[0], channels[1]);
 }
 
-// Lumi audio runs on Core 1 — called from loop1()
-void platformSetup1() {
-    // Lumi initialises audio on Core 1 to keep SoftwareSerial off Core 0
-    audioInit();
-}
-
+void platformSetup1()    {}   // audioInit is on Core 0 in platformSetup()
 void platformLoopCore1() {
-    drainAudioQueue();   // handle any action-triggered play/pause from Core 0
-    processAudio();      // Lumi's channel-driven track/sample logic
+    drainAudioQueue();
+    processAudio();
 }
 
 void platformScreen() {
