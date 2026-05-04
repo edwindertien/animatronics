@@ -247,17 +247,3 @@ void configureMotors();
 extern Action myActionList[NUM_ACTIONS];
 #endif
 
-/*
-     Sample 1: fluitje         Sample 7: arm uit
-     Sample 2: fietfiew         Sample 8: arm in
-     Sample 3: kloinkskinkeldekikel  Sample 9: motorkap
-     Sample 4: ratelratel       Sample 10: achterklep omhoog
-     Sample 5:                  Sample 11: snurk
-     Sample 6:                  Sample 12: deur
-                                Sample 13: fly up
-                                Sample 14: fly down
-                                Sample 15: grill
-                                Sample 16: knipoog
-                                Sample 17: rook
-                                Sample 18: zwaailamp
-*/
