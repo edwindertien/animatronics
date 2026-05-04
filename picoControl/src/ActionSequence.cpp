@@ -1,7 +1,19 @@
-#include "vehicle_select.h"   // ← ADD THIS
 #include "ActionSequence.h"
 
-ActionSequence::ActionSequence(char button, int mode, bool loop)
+extern bool getRemoteSwitch(int mux_channel);
+extern bool getRemoteSwitchMid(int mux_channel);
+extern bool getRemoteSwitchLow(int mux_channel);
+extern bool getRemoteKey(int bit);
+
+static bool _seqButtonPressed(int button) {
+    if (button < 0)    return false;
+    if (button >= 100) return getRemoteKey(button - 100);   // KEY_ACTION
+    if (button >= 50)  return getRemoteSwitchMid(button-50);// MUX_MID / SW(n,1)
+    if (button >= 30)  return getRemoteSwitchLow(button-30);// MUX_LOW / SW(n,0)
+    return getRemoteSwitch(button);                          // MUX_HIGH / SW(n,2)
+}
+
+ActionSequence::ActionSequence(int button, int mode, bool loop)
   : button_(button),
     mode_(mode),
     loop_(loop),
@@ -62,7 +74,7 @@ void ActionSequence::update() {
   uint32_t nowMs = millis();
   
   // -------- 1) Handle remote button the same way as in Action::update() -----
-  bool buttonPressed = getRemoteSwitch(button_);
+  bool buttonPressed = _seqButtonPressed(button_);
 
   if (mode_ == DIRECT) {
     if (buttonPressed && state_ == 0 && previousState_ == 0) {
