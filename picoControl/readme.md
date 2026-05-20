@@ -167,6 +167,14 @@ Action(-1, relaynr, TRIGGER)                                 // internal/sequenc
 
 **Important:** actions driven by sequences must use `button=-1` and `TRIGGER` mode. A `DIRECT` action triggered by a sequence is immediately stopped by `update()` on the next tick because the button is not physically held.
 
+### Understanding switch debug output vs track data
+The INPUT_DEBUG output prints SW[0-3]: 0=s 1=s 2=s ... 15=s where the number is the mux channel (0-15) and s is the state (0=low/centre, 1=mid, 2=high). So 2=1 means mux channel 2 is at state 1, which in action list notation is SW(2,1).
+
+In the animation track's animationStep struct, the 16 mux channels are packed into fields 5-8 (the four switch bank bytes), four channels per byte, two bits per channel. Mux channel N lives in field 5 + N/4, at bit position 2*(N%4). The state value occupies those two bits: 0b01=state1, 0b10=state2. So mux channel 2 (N=2) sits in field5 at bits 4-5 (2*(2%4)=4), giving field5 values of 16 for state1 and 32 for state2. When these appear combined with other active channels in the same byte (e.g. field5=33 = spray(32) + mux0-state1(1)), the individual channel states can be extracted by masking: (field5 >> 4) & 0x03 gives the state of mux channel 2.
+
+This means a terminal message SW(2,1) corresponds directly to field5 bit pattern 0b00010000 (value 16), and SW(2,2) to 0b00100000 (value 32) in the recorded track data.
+
+
 ---
 
 ## Animation system
