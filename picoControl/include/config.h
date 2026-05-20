@@ -96,7 +96,7 @@ extern const int saveValues[];
 #define ANIMATION_KEY        15  // mux channel 15
 #define ANIMATION_KEY_STATE   1  // MID = SW(15,1)
 #define EXPO_KEY (15)
-#define DEFAULT_STEPS 967  // was 967
+#define DEFAULT_STEPS 985  // was 967
 #define EXPO_STEPS 985  // was 985
 #define ANIMATION_TRACK_H "Track-animalove.h"
 #define BRAKE_TIMEOUT 30
