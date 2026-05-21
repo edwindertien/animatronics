@@ -167,14 +167,6 @@ Action(-1, relaynr, TRIGGER)                                 // internal/sequenc
 
 **Important:** actions driven by sequences must use `button=-1` and `TRIGGER` mode. A `DIRECT` action triggered by a sequence is immediately stopped by `update()` on the next tick because the button is not physically held.
 
-### Understanding switch debug output vs track data
-The INPUT_DEBUG output prints SW[0-3]: 0=s 1=s 2=s ... 15=s where the number is the mux channel (0-15) and s is the state (0=low/centre, 1=mid, 2=high). So 2=1 means mux channel 2 is at state 1, which in action list notation is SW(2,1).
-
-In the animation track's animationStep struct, the 16 mux channels are packed into fields 5-8 (the four switch bank bytes), four channels per byte, two bits per channel. Mux channel N lives in field 5 + N/4, at bit position 2*(N%4). The state value occupies those two bits: 0b01=state1, 0b10=state2. So mux channel 2 (N=2) sits in field5 at bits 4-5 (2*(2%4)=4), giving field5 values of 16 for state1 and 32 for state2. When these appear combined with other active channels in the same byte (e.g. field5=33 = spray(32) + mux0-state1(1)), the individual channel states can be extracted by masking: (field5 >> 4) & 0x03 gives the state of mux channel 2.
-
-This means a terminal message SW(2,1) corresponds directly to field5 bit pattern 0b00010000 (value 16), and SW(2,2) to 0b00100000 (value 32) in the recorded track data.
-
-
 ---
 
 ## Animation system
@@ -200,7 +192,7 @@ typedef struct {
 Binary layout is identical to the original struct — all existing `Track-xxx.h` files work without modification.
 
 ### Embedding actuator commands in a track
-Switch bank fields encode 4 mux channels x 2 bits each. To activate mux channel N during playback, add the appropriate value to the relevant field. Example: mux ch 2 MID (`SW(2,1)`) in `sw_mux_0_3` (field 5) = add `16`. This allows actuators (sirens, motors, etc.) to be embedded in recorded tracks without a separate sequence.
+Switch bank fields encode 4 mux channels x 2 bits each. To activate mux channel N during playback, add the appropriate value to the relevant field. Example [animal_love]: mux ch 2 MID (`SW(2,1)`) in `sw_mux_0_3` (field 5) = add `16`. This allows actuators (sirens, motors, etc.) to be embedded in recorded tracks without a separate sequence.
 
 ### Recording a new animation
 1. Uncomment `#define ANIMATION_DEBUG` in `config.h` for your vehicle
@@ -339,3 +331,113 @@ void platformLoopCore1();   // Core 1: leave empty
 | ami | working | Looking sequence, audio, 24 relays, RS485 eyes confirmed |
 | lumi | compile | Untested with new transmitter |
 | washmachine | compile | Untested with new transmitter |
+
+---
+
+## Track visualisation tool
+
+The `tools/` directory contains a Python visualiser for inspecting and verifying animation tracks before flashing.
+
+
+
+### Setup
+
+```bash
+pip install matplotlib pyyaml
+```
+
+### Usage
+
+Run from the project root:
+
+```bash
+# View interactively (example for animal_love)
+python3 tools/track_visualiser.py src/Track-animalove.h tools/channel_map_animal_love.yaml --animation expo
+
+# Save to PNG (place output in docs/ for documentation)
+python3 tools/track_visualiser.py src/Track-animalove.h tools/channel_map_animal_love.yaml --animation expo --output docs/expo_track.png
+python3 tools/track_visualiser.py src/Track-animalove.h tools/channel_map_animal_love.yaml --animation default --output docs/default_track.png
+
+# Zoom into a section — arguments are step numbers (20 steps = 1 second)
+python3 tools/track_visualiser.py src/Track-animalove.h tools/channel_map_animal_love.yaml --animation expo --start 0 --end 400
+```
+
+### Output images
+
+Place generated PNG files in `docs/` for reference:
+
+```
+docs/
+  expo_track.png      — full expo animation timeline
+  default_track.png   — full default animation timeline
+```
+
+![expo_track](docs/expo_track.png)
+
+
+Example output: each actuator gets its own row. States that share a mux channel (e.g. [animal_love] siren=state1 and spray=state2 on mux2) are always shown on separate rows so they never overlap visually. Start and stop times are annotated at each transition edge.
+
+### Channel map file (`tools/channel_map.yaml`)
+
+The YAML file maps mux channel numbers and states to human-readable labels. Edit it to add or rename actuators without touching the Python script. Only channels with non-zero activity in the selected range are shown.
+
+```yaml
+# Example from tools/channel_map_animal_love.yaml
+switches:
+  - mux: 2
+    label: "Sirene / Spray"   # animal_love: mux2 controls both siren and spray
+    states:
+      1: "SIRENE"    # SW(2,1) — bottom board relay7
+      2: "SPRAY"     # SW(2,2) — top board relay0
+```
+
+### Switch encoding — debug output vs track data [animal_love example]
+
+The `INPUT_DEBUG` serial output prints:
+```
+SW[0-3]: 0=0 1=0 2=1 3=0 4=0 5=1 ...
+```
+where the number before `=` is the **mux channel** (0-15) and the value after is the **state** (0=off/centre, 1=mid, 2=high). So `2=1` means mux channel 2, state 1 = `SW(2,1)`. In animal_love this is the siren.
+
+In the `animationStep` struct, mux channel N is packed into field `5 + N/4` at bit position `2*(N%4)`. The 2-bit state value sits in those bits: `0b01`=state1, `0b10`=state2. So:
+
+| Debug output | Mux ch | Field | Bits | Field value |
+|---|---|---|---|---|
+| `SW(2,1)` [animal_love: siren] | 2 | field5 | 4-5 | 16 (0b00010000) |
+| `SW(2,2)` [animal_love: spray] | 2 | field5 | 4-5 | 32 (0b00100000) |
+| `SW(6,1)` [animal_love: heads] | 6 | field6 | 4-5 | 16 |
+| `SW(5,1)` [animal_love: beak] | 5 | field6 | 2-3 | 4  |
+
+Values combine when multiple channels are active: field5=48 means siren(16) + spray(32) both on simultaneously.
+
+---
+
+## Animal Love — dual RS485 board mapping
+
+Animal Love has two RS485 receiver boards that both receive the same 9-byte passthrough buffer.
+
+### Top board (raw bitmask decoding)
+
+The top board's `getRemoteSwitch(button)` reads bit `button % 8` from the corresponding packed switch byte. Since our encoding puts 2 bits per mux channel, each individual bit fires a relay independently:
+
+| Action | Button | Bit of field | Mux ch | State | Actuator |
+|---|---|---|---|---|---|
+| Action(5,  relay0) | 5 | bit5 of field5 | mux2 | state2 | water/spray |
+| Action(6,  relay1) | 6 | bit6 of field5 | mux3 | state1 | blaas/blower |
+| Action(8,  relay2) | 8 | bit0 of field6 | mux4 | state1 | L+R head turn |
+| Action(10, relay3) | 10 | bit2 of field6 | mux5 | state1 | bek/beak |
+| Action(12, relay4) | 12 | bit4 of field6 | mux6 | state1 | knik/heads |
+| Action('6'–'8', relay5–7) | keypad | — | — | — | keypad only |
+
+### Bottom board (SW notation decoding)
+
+| Action | Switch | Actuator |
+|---|---|---|
+| SW(0,1) | mux0 state1 | tandkrans forward |
+| SW(0,2) | mux0 state2 | tandkrans reverse |
+| SW(1,1) | mux1 state1 | lift mid |
+| SW(1,2) | mux1 state2 | lift up |
+| SW(2,1) | mux2 state1 | sirene |
+| SW(2,2) | mux2 state2 | spray (also fires top board relay0) |
+| SW(3,2) | mux3 state2 | ratel |
+| SW(9,1) | mux9 state1 | poten |

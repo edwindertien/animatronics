@@ -53,9 +53,9 @@ Additionally, the PCA9635's LEDOUT registers are uninitialised after `begin()`. 
 ### Relay Numbering Lost in Translation
 During the migration from the old codebase (which used char-based button values like `'5'`, `'*'`) to the new protocol, the AMI action list was rebuilt from scratch using estimated relay numbers. The original relay assignments (0-15 on PCA9685, 16-23 on GPIO) were partially lost.
 
-Recovery was done by cross-referencing the original `config.cpp` file against the new action list. Key lesson: **always keep the original relay wiring comment in the action list** (e.g., `// arm uit — relay 0`). The relay number is the physical wiring; the button/switch assignment can change but the relay number is fixed by the hardware.
+Recovery was done by cross-referencing the original `config.cpp` file against the new action list. Key lesson: **always keep the original relay wiring comment in the action list** (e.g., [ami] `// arm uit — relay 0`). The relay number is the physical wiring; the button/switch assignment can change but the relay number is fixed by the hardware.
 
-For AMI, relay numbers 16-23 are GPIO-driven via the `EXTRA_RELAY` mechanism, mapped to GPIO pins 18, 19, 20, 21, 22, 26, 27, 28.
+For AMI specifically, relay numbers 16-23 are GPIO-driven via the `EXTRA_RELAY` mechanism, mapped to GPIO pins 18, 19, 20, 21, 22, 26, 27, 28.
 
 ---
 
@@ -113,10 +113,10 @@ During animation playback, `channels[]` is frozen from the live CRSF data so the
 ### Animation Key State (ANIMATION_KEY_STATE)
 `ANIMATION_KEY` was originally always checked with `getRemoteSwitch()` (state == 2 = HIGH). Some vehicles use MID (state 1) as their animation trigger. `ANIMATION_KEY_STATE` in `config.h` (0, 1, or 2) selects which state triggers animation. The `ANIMATION_KEY_PRESSED` macro in `main.cpp` resolves to the correct `getRemoteSwitch*()` call.
 
-### Background Track Race Condition (SCUBA)
-SCUBA plays a background bubble track that restarts automatically via `processBackground()`. When the jaws sequence starts, it enqueues a play command for the jaws track. But `processBackground()` would immediately play the bubble track over it on the same tick.
+### Background Track Race Condition [scuba]
+[scuba] plays a background bubble track that restarts automatically via `processBackground()`. When the jaws sequence starts, it enqueues a play command for the jaws track. But `processBackground()` would immediately play the bubble track over it on the same tick.
 
-Fix: `_bg1Foreground` flag is set when any foreground track is enqueued on player 1, and cleared when player 1 is paused. `processBackground()` returns immediately if `_bg1Foreground` is true.
+Fix: `_bg1Foreground` flag is set when any foreground track is enqueued on player 1, and cleared when player 1 is paused. `processBackground()` returns immediately if `_bg1Foreground` is true. (First encountered on scuba.)
 
 ---
 
@@ -127,3 +127,52 @@ Vehicle names were originally printed in full (e.g., "KREEFT", "SCHILD"). These 
 
 ### "seq:" vs "sq:"
 The sequence status field uses "sq:" (3 chars + time) rather than "seq:" (4 chars) to avoid overlapping the "LQ:" link quality field at x=86.
+
+---
+
+## Track file editing — lessons learned
+
+### Switch encoding confusion [animal_love]
+
+Significant time was lost trying to identify which fields in the `animationStep` struct controlled which actuators. The root cause was conflating three different representations of the same information:
+
+1. **Debug terminal** prints `SW[N]=state` where N is the mux channel number (0-15)
+2. **Action list** uses `SW(mux, state)` macro notation
+3. **Track file** stores packed bits: mux channel N → field `5+N/4`, bits `(N%4)*2` and `(N%4)*2+1`
+
+Initially the wrong field/bit was modified (e.g. editing field7 thinking it was mux2, when mux2 is actually in field5 bits 4-5). The correct lookup [animal_love]: `SW(2,1)` = siren = field5 value 16; `SW(2,2)` = spray = field5 value 32.
+
+### Top board uses raw bitmask, not mux decode [animal_love]
+
+The animal love top board's `getRemoteSwitch(button)` reads bit `button` directly from the packed switch bytes — it does NOT decode mux channel states. Button number 5 = bit 5 of `switches1` (field5) = mux channel 2, state bit 1 (MSB of the 2-bit state = state2). This means:
+
+- [animal_love] `SW(2,1)` (siren, sets bit4 of field5) does NOT trigger the spray relay
+- [animal_love] `SW(2,2)` (spray, sets bit5 of field5) DOES trigger the spray relay (top board action(5))
+- The two states are completely independent at the relay level
+
+This was non-obvious because the bottom board uses the standard mux decode while the top board treats the same bytes as a flat bitmask.
+
+### Track visualiser workflow [animal_love]
+
+The track visualiser (`tools/track_visualiser.py` + `tools/channel_map.yaml`) was essential for catching errors after programmatic track edits. Key lessons:
+
+- Always re-run the visualiser after any edit to verify the result before flashing
+- The `--start` and `--end` arguments use step numbers (20 steps = 1 second), not seconds
+- States that share a mux channel (siren=state1, spray=state2 on mux2) must be on separate rows in the channel map — the visualiser plots one row per (mux, state) pair
+
+### Default vs expo animation — copy discipline [animal_love]
+
+The default and expo animations must be kept in sync manually. Several sessions were spent debugging the robot running the old default animation because:
+
+1. Edits were applied to expo but not propagated to default
+2. The `clear_mux()` function correctly zeroed the POTEN bits but left other field7 bits unchanged, causing subtle drift between the arrays
+
+**Correct procedure:** always rebuild default as a complete copy of expo with mux9 cleared, rather than patching it incrementally. Verify with a byte-by-byte comparison script before committing.
+
+### Siren was recorded as always-on [animal_love]
+
+In the original recorded animal_love expo track, the siren switch (mux8 state1, later correctly identified as mux2 state1) was held on for the entire 49-second track by the operator during recording. This required clearing it from 962 steps and re-adding it as a deliberate 1-second burst. Always check the full field value distribution after recording before using a track in production.
+
+### Spray was never recorded [animal_love]
+
+The animal_love spray actuator (`SW(2,2)`) did not appear in the original recording — the operator never triggered it during the session. It was added programmatically after the fact. The two original spray-like periods in the recording (field5 values of 32 at steps 557-641 and 753-836) were actually `mux2 state2` which correctly mapped to spray but were 4.2 seconds each and overlapped with the head motor period. These were replaced with a single clean 2-second burst at the 5-second mark.
