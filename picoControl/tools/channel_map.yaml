@@ -1,0 +1,97 @@
+# channel_map.yaml — animal_love track channel mapping
+#
+# animationStep struct fields:
+#   field 0: axis_x        (0-255, 127=centre)
+#   field 1: axis_y        (0-255, 127=centre)
+#   field 2: nunchuck      (0=none, 64=Z, 128=C, 192=both)
+#   field 3: keypad_lo     (bits 0-7)
+#   field 4: analog1       (volume/speed)
+#   field 5: sw_mux_0_3   = switches1  mux ch 0(bits0-1) 1(bits2-3) 2(bits4-5) 3(bits6-7)
+#   field 6: sw_mux_4_7   = switches2  mux ch 4(bits0-1) 5(bits2-3) 6(bits4-5) 7(bits6-7)
+#   field 7: sw_mux_8_11  = switches3  mux ch 8(bits0-1) 9(bits2-3) 10(bits4-5) 11(bits6-7)
+#   field 8: sw_mux_12_15 = switches4  mux ch 12(bits0-1) ...
+#
+# TOP BOARD decoding (getRemoteSwitch reads raw bit from packed byte):
+#   button N (0-7)  → bit N of switches1 (field5)
+#   button N (8-15) → bit N-8 of switches2 (field6)
+#   Since mux state uses 2 bits: bit(N) = state LSB → state1; bit(N+1) = state MSB → state2
+#
+#   Action( 5, relay0) water/spray → bit5 of field5 → mux2 MSB → SW(2,2) = state2
+#   Action( 6, relay1) blaas/blower → bit6 of field5 → mux3 LSB → SW(3,1) = state1
+#   Action( 8, relay2) L+R head turn → bit0 of field6 → mux4 LSB → SW(4,1) = state1
+#   Action(10, relay3) bek/beak → bit2 of field6 → mux5 LSB → SW(5,1) = state1
+#   Action(12, relay4) knik → bit4 of field6 → mux6 LSB → SW(6,1) = state1
+#   Action('6','7','8') → keypad keys (not in track data)
+#
+# BOTTOM BOARD decoding (SW notation, standard mux decode):
+#   SW(0,1)  tandkrans forward
+#   SW(0,2)  tandkrans reverse
+#   SW(1,1)  lift mid
+#   SW(1,2)  lift up
+#   SW(2,1)  sirene   → relay7
+#   SW(2,2)  water/spray → ALSO triggers top board relay0 (same bit5 of field5)
+#   SW(3,2)  ratel
+#   SW(9,1)  poten
+
+vehicle: animal_love
+
+analog:
+  - field: 0
+    label: "Joystick X"
+  - field: 1
+    label: "Joystick Y"
+  - field: 2
+    label: "Nunchuck (drive Z)"
+
+switches:
+  # ── mux 0 — field5 bits 0-1 ───────────────────────────────────────────────
+  - mux: 0
+    label: "Tandkrans"
+    states:
+      1: "KRANS FWD"          # SW(0,1) → bottom: motor fwd
+      2: "KRANS REV"          # SW(0,2) → bottom: motor rev
+
+  # ── mux 1 — field5 bits 2-3 ───────────────────────────────────────────────
+  - mux: 1
+    label: "Lift"
+    states:
+      1: "LIFT MID"           # SW(1,1) → bottom relay3
+      2: "LIFT UP"            # SW(1,2) → bottom relay4
+
+  # ── mux 2 — field5 bits 4-5 ───────────────────────────────────────────────
+  - mux: 2
+    label: "Sirene / Spray"
+    states:
+      1: "SIRENE"             # SW(2,1) → bottom relay7  [bit4 of field5]
+      2: "SPRAY"              # SW(2,2) → top relay0     [bit5 of field5]
+
+  # ── mux 3 — field5 bits 6-7 ───────────────────────────────────────────────
+  - mux: 3
+    label: "Ratel / Blower"
+    states:
+      1: "BLOWER"             # SW(3,1) → top relay1     [bit6 of field5]
+      2: "RATEL"              # SW(3,2) → bottom relay5  [bit7 of field5]
+
+  # ── mux 4 — field6 bits 0-1 ───────────────────────────────────────────────
+  - mux: 4
+    label: "Head turn (top r2)"
+    states:
+      1: "HEAD TURN"          # SW(4,1) → top relay2     [bit0 of field6]
+
+  # ── mux 5 — field6 bits 2-3 ───────────────────────────────────────────────
+  - mux: 5
+    label: "Bek (top r3)"
+    states:
+      1: "BEK OPEN"           # SW(5,1) → top relay3     [bit2 of field6]
+
+  # ── mux 6 — field6 bits 4-5 ───────────────────────────────────────────────
+  - mux: 6
+    label: "Knik/Heads (top r4)"
+    states:
+      1: "KNIK / HEADS ON"    # SW(6,1) → top relay4     [bit4 of field6]
+
+  # ── mux 9 — field7 bits 2-3 ───────────────────────────────────────────────
+  - mux: 9
+    label: "Poten"
+    states:
+      1: "POTEN"              # SW(9,1) → bottom relay0  [bit2 of field7]
