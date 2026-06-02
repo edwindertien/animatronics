@@ -61,6 +61,7 @@ extern const int saveValues[];
 #endif
 
 #ifdef WASHMACHINE
+#define OMNI_DRIVE (1)
 #define USE_MOTOR (1)
 #define USE_M5_SERVOS (1)
 #define USE_SPEEDSCALING (1)

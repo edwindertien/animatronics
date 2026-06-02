@@ -99,6 +99,19 @@ void platformOnIdle()    {}
 //   - Dead-band of +/-DEADBAND counts around centre suppresses motor noise
 // ============================================================================
 
+// Stub Motor instances and configureMotors() to satisfy main.cpp linker references.
+// main.cpp calls configureMotors() in setup() and references motorLeft/motorRight
+// in loop() for speed scaling — neither is used in omni drive mode.
+// Motor(-1,-1,-1,-1) is valid — all pins disabled, setSpeed() is a no-op.
+#include "Motor.h"
+Motor motorLeft (-1, -1, -1, -1);
+Motor motorRight(-1, -1, -1, -1);
+Motor trommel   (-1, 15, 14, -1);
+void configureMotors() {
+      trommel.init();
+
+}   // no-op — servo board init is in platformSetup()
+
 #define HB25_STOP     1500
 #define HB25_MAX_FWD  2000
 #define HB25_MAX_REV  1000
@@ -109,6 +122,7 @@ void platformOnIdle()    {}
 #define CH_BL    2
 #define CH_BR    3
 #define CH_DOOR  6
+#define CH_KNOB  7
 
 #define DEADBAND 4
 
@@ -133,8 +147,8 @@ static void stopAllMotors() {
 }
 
 static void omniDrive(int Y, int X, int R) {
-    int fl =  Y + X + R;
-    int fr =  Y - X - R;
+    int fl =  -Y + X + R;
+    int fr =  -Y - X - R;
     int bl =  Y - X + R;
     int br =  Y + X - R;
 
@@ -155,17 +169,18 @@ static void omniDrive(int Y, int X, int R) {
 }
 
 void platformSetup() {
+    configureMotors();
     stopAllMotors();
     servos.writeServoPulse(CH_DOOR, HB25_STOP, true);
 }
 
 void platformLoop() {
-    int Y = joystickToSigned(channels[CRSF_CH_AXIS_Y1]);
+    int Y = joystickToSigned(channels[CRSF_CH_AXIS_Y2]);
     int X = joystickToSigned(channels[CRSF_CH_AXIS_X1]);
-    int R = joystickToSigned(channels[CRSF_CH_AXIS_X2]);
+    int R = joystickToSigned(channels[CRSF_CH_AXIS_Y1]);
     omniDrive(Y, X, R);
 
-    int doorPulse = map(channels[CRSF_CH_AXIS_Y2], 0, 255, 1000, 2000);
+    int doorPulse = map(channels[CRSF_CH_AXIS_X2], 0, 255, 1000, 2000);
     servos.writeServoPulse(CH_DOOR, doorPulse, true);
 }
 

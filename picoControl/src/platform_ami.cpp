@@ -48,8 +48,8 @@ Action myActionList[NUM_ACTIONS] = {
     Action(SW(2,1),   -1, DIRECT, nullptr, 100,  2, &player1), // [1]  track 2
     Action(SW(3,1),   -1, DIRECT, nullptr, 100,  4, &player1), // [2]  track 3
     Action(SW(0,1),   11, DIRECT, nullptr, 100, 19, &player2), // [3]  zwaailicht    — relay 11
-    Action(SW(5,1),    4, DIRECT, nullptr, 100, 10, &player2), // [4]  achterklep op — relay 4
-    Action(SW(5,2),    5, DIRECT),                             // [5]  achterklep dicht — relay 5
+    Action(SW(5,1),    4, DIRECT),                             // [4]  achterklep dicht — relay 4 (had sample 10 as well)
+    Action(SW(5,2),    5, DIRECT),                             // [5]  achterklep open — relay 5
     Action(SW(8,1),    0, DIRECT, nullptr, 100,  8, &player2), // [6]  arm uit       — relay 0
     Action(SW(8,2),    1, DIRECT, nullptr, 100,  7, &player2), // [7]  arm in        — relay 1
     Action(SW(6,1),   22, DIRECT, nullptr, 100,  9, &player2), // [8]  motorkap open — relay 22 (GPIO)
