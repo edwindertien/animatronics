@@ -176,3 +176,66 @@ In the original recorded animal_love expo track, the siren switch (mux8 state1, 
 ### Spray was never recorded [animal_love]
 
 The animal_love spray actuator (`SW(2,2)`) did not appear in the original recording — the operator never triggered it during the session. It was added programmatically after the fact. The two original spray-like periods in the recording (field5 values of 32 at steps 557-641 and 753-836) were actually `mux2 state2` which correctly mapped to spray but were 4.2 seconds each and overlapped with the head motor period. These were replaced with a single clean 2-second burst at the 5-second mark.
+
+---
+
+## Stofzuiger DDSM210 integration — lessons learned
+
+### DDSM library uses HardwareSerial* — patched to Stream*
+
+The `ddsm_ctrl` library declared `pSerial` as `HardwareSerial*`, which does not accept `SoftwareSerial`. Patched to `Stream*` — both `HardwareSerial` and `SoftwareSerial` inherit from `Stream`, and the library only calls `write()`, `available()`, and `read()` which are all `Stream` methods. The library also had a bug in `ddsm115_fb()` where it read from hardcoded `Serial1` instead of `pSerial` — fixed to `pSerial->readBytes()`.
+
+### DDSM ownership — keep in platform file, not main.cpp
+
+The DDSM `dc` and `DDSMport` objects were initially declared in `main.cpp` under `USE_DDSM`, matching the washmachine pattern. This caused multiple definition linker errors when the platform file also needed to declare them. Resolution: guard main.cpp's `USE_DDSM` blocks with `!defined(STOFZUIGER)` and declare `dc`/`DDSMport` entirely in `platform_stofzuiger.cpp`. Other vehicles using DDSM (washmachine) are unaffected.
+
+### saveValues — extern pattern for platform-defined arrays
+
+`saveValues[]` is referenced by `main.cpp` but should be defined per-vehicle in the platform file, not in `config.h`. The correct pattern: define in `platform_xxx.cpp`, declare `extern const int saveValues[]` in the vehicle's `config.h` block. This matches how `myActionList` and sequences are handled in other platforms.
+
+### DDSM startup unreliability — USB serial noise
+
+The DDSM init was unreliable: motor stayed locked in position loop on many startups. Root cause: RP2040 boots fast and USB `Serial.begin(115200)` causes brief GPIO noise at the same baud rate as the DDSM SoftwareSerial, corrupting the first `ddsm_change_mode()` packet. Fix: 200ms delay before first UART command, mode + zero command sent 3× with 20ms gaps. A 5-second periodic mode re-assertion in `platformLoop()` provides ongoing recovery.
+
+### DDSM free-float is impossible via UART
+
+Extensive investigation and manual review confirmed the DDSM210 (FOC/PMSM) has no coast/free-float mode accessible via UART. Mode 0 (open loop) with cmd=0 gives minimal but nonzero holding torque. True free rotation only when unpowered. The `DDSM_HOLD` config flag and mode-switching code were added and then removed after this was confirmed.
+
+### Software ramping removed — shocks are inherent
+
+A software RPM ramp (`currentRpm += DDSM_RAMP_STEP` per tick) was implemented to smooth speed changes. It reduced responsiveness without eliminating shocks. Removed — the FOC controller applies full current to reach commanded RPM instantly, and only very gradual joystick movement avoids shocks without a ramp. The hardware `act` byte in the DDSM packet was investigated but the manual confirms it has no documented acceleration function for the DDSM210.
+
+### mode == ACTIVE gate for non-speedscaling motor path [stofzuiger]
+
+The `#else` branch of the `USE_MOTOR` / `USE_SPEEDSCALING` conditional in `main.cpp` previously drove motors immediately with raw channel values before CRSF was active (channels all 0 → motors at -255). Added `mode == ACTIVE` check. Only affects STOFZUIGER since all other motor vehicles use `USE_SPEEDSCALING` which has its own arming check.
+
+### M5Unit8Servos requires USE_M5_SERVOS in config.h
+
+The `servos` object is declared in `main.cpp` under `#ifdef USE_M5_SERVOS`. Adding `extern M5Unit8Servos servos` in the platform file without defining `USE_M5_SERVOS` in config.h causes a linker error (undefined reference). Always add `USE_M5_SERVOS` to the config block of any vehicle using the servo board.
+
+---
+
+## Stofzuiger — additional lessons
+
+### Servo detach on link loss — platformLoop runs unconditionally [stofzuiger]
+
+Several approaches were tried to detach the mouth servo when the RF link is lost:
+- `crsfReady()` check — failed because `crsfReady()` is still true on the same tick `platformOnIdle()` fires
+- `crsfLost()` check in `platformLoop()` with `detach()` every tick — compiled but did not detach in practice
+- `servoAttached` flag set by `platformOnIdle()`, cleared by `platformLoop()` re-attach — race condition
+
+Root cause: `platformLoop()` is called every tick regardless of link state, immediately after the link-loss block. Any `detach()` in `platformOnIdle()` is undone on the very next tick by `writeServoPulse(..., true)`.
+
+**Correct solution:** set `saveValues[2] = 0` so `channels[2]` resets to 0 on link loss, which maps to 1150µs (closed) through the normal servo write path. No detach needed — the servo holds closed via the existing write mechanism. This is the correct picoControl pattern for safe default states.
+
+### Pico W LED routing [stofzuiger]
+
+The Pico W routes `LED_BUILTIN` through the CYW43439 WiFi chip via SPI. `digitalWrite(LED_BUILTIN, HIGH)` does nothing without the correct board definition. Fix: `board = rpipicow` in the stofzuiger platformio.ini env. The EarlPhilhower core then correctly routes the LED — no WiFi initialisation required.
+
+### DDSM210 motor ID must match DDSM_ID define [stofzuiger]
+
+The DDSM210 stores its address in flash (factory default ID=1). The codebase uses `DDSM_ID 4`. A replacement motor that does not respond is almost certainly still at ID 1. Diagnose with `dc.ddsm_id_check()` (broadcasts to 0xC8), then either change `DDSM_ID` in the platform file or reprogram with `dc.ddsm_change_id(4)`.
+
+### USE_M5_SERVOS must be defined for extern servos to link [stofzuiger]
+
+`servos` is declared in `main.cpp` under `#ifdef USE_M5_SERVOS`. Without this define in config.h, `extern M5Unit8Servos servos` in the platform file produces an undefined reference linker error. Always add `USE_M5_SERVOS` to any vehicle config that uses the servo board.

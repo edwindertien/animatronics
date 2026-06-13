@@ -27,7 +27,8 @@ Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);
 #endif
 
-#ifdef USE_DDSM
+#if defined(USE_DDSM) && !defined(STOFZUIGER)
+// DDSM for non-stofzuiger vehicles — stofzuiger owns dc/DDSMport in its platform file
 #include <ddsm_ctrl.h>
 #include <SoftwareSerial.h>
 DDSM_CTRL dc;
@@ -104,7 +105,6 @@ TMotor_ServoConnection servo_conn(CAN0);
 #ifdef ANIMATION_KEY
 #include "Animation.h"
 Animation animation(defaultAnimation, DEFAULT_STEPS);
-//Animation animation(expoAnimation, EXPO_STEPS); // animal love uses EXPO steps as default!!
 #ifdef EXPO_KEY
 Animation expanimation(expoAnimation, EXPO_STEPS);
 #endif
@@ -199,7 +199,12 @@ void setup() {
     Serial.println(F("=========================="));
     pinMode(LED_BUILTIN, OUTPUT);
 
-#ifdef USE_DDSM
+#ifdef USE_OLED
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.clearDisplay();
+#endif
+
+#if defined(USE_DDSM) && !defined(STOFZUIGER)
     DDSMport.begin(115200);
     dc.pSerial = &DDSMport;
     dc.set_ddsm_type(210);
@@ -214,11 +219,6 @@ void setup() {
 
     // Audio is initialised on Core 1 via platformSetup1() to keep
     // SoftwareSerial bit-banging off Core 0 (avoids UART corruption at 420kbaud)
-
-#ifdef USE_OLED
-    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-    display.clearDisplay();
-#endif
 
 #ifdef USE_ENCODER
     pinMode(PUSH_BUTTON, INPUT_PULLUP);
@@ -361,7 +361,7 @@ void loop() {
 #endif
 
     // --- Specialist hardware output ---
-#ifdef USE_DDSM
+#if defined(USE_DDSM) && !defined(STOFZUIGER)
     dc.ddsm_ctrl(4, map(channels[1], 0, 255, -2100, 2100), 0);
 #endif
 
@@ -403,9 +403,14 @@ void loop() {
             motorRight.setSpeed(0, brakeState);
         }
 #else
-        brakeTimer = BRAKE_TIMEOUT;
-        motorLeft.setSpeed( getLeftValueFromCrossMix( map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)), brakeState);
-        motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)), brakeState);
+        if (mode == ACTIVE) {
+            brakeTimer = BRAKE_TIMEOUT;
+            motorLeft.setSpeed( getLeftValueFromCrossMix( map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)), brakeState);
+            motorRight.setSpeed(getRightValueFromCrossMix(map(channels[1], 0, 255, -MAX_SPEED, MAX_SPEED), map(channels[0], 255, 0, -MAX_SPEED, MAX_SPEED)), brakeState);
+        } else {
+            motorLeft.setSpeed(0, brakeState);
+            motorRight.setSpeed(0, brakeState);
+        }
 #endif
     }
 #endif // USE_MOTOR
@@ -823,6 +828,8 @@ void processScreen(int mode, int position) {
     display.print("LOV");
 #elif defined(WASHMACHINE)
     display.print("WAS");
+#elif defined(STOFZUIGER)
+    display.print("STO");
 #else
     display.print("?");
 #endif

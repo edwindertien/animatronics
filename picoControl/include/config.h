@@ -8,7 +8,7 @@
 //#define DEBUG              // uncomment to dump raw channel values to serial each tick
 //#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
 //#define RELAY_TEST         // uncomment to enable t/r serial commands for relay test
-#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick
+//#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick
 
 // USE_AUDIO levels:  0 = no audio
 //                    1 = player1 only
@@ -49,6 +49,33 @@
 #include "ActionSequence.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////
+
+// ============================================================================
+// ADD THIS BLOCK TO config.h (inside the existing #ifdef STOFZUIGER section)
+// Replace or augment the existing STOFZUIGER block with this:
+// ============================================================================
+
+#ifdef STOFZUIGER
+#define BOARD_V2 (1)
+#define USE_MOTOR (1)
+#define USE_CROSS_MIXING (1)
+// No USE_SPEEDSCALING — BetaFPV, no nunchuck, drive always active when armed
+// No USE_DDSM — DDSM is fully owned by platform_stofzuiger.cpp
+#define MAX_SPEED 255
+#define BRAKE_TIMEOUT 30
+#define DDSM_HOLD 0           // 0 = free-float in deadband, 1 = hold at 0 rpm
+#define USE_M5_SERVOS (1)
+#define USE_OLED (1)
+#define USE_CRSF (1)
+#define CRSF_CHANNEL_OFFSET 3
+#define NUM_CHANNELS 16
+extern const int saveValues[];
+void configureMotors();
+extern Motor motorLeft;
+extern Motor motorRight;
+#endif
+ 
+
 
 #ifdef DESKLIGHT
 #define USE_STS (1)

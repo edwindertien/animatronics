@@ -182,6 +182,14 @@ void platformLoop() {
 
     int doorPulse = map(channels[CRSF_CH_AXIS_X2], 0, 255, 1000, 2000);
     servos.writeServoPulse(CH_DOOR, doorPulse, true);
+    
+    servos.writeServoPulse(CH_KNOB, map(channels[5], 0, 255, 1000, 2000), true);
+
+    extern bool brakeState;
+    extern unsigned long brakeTimer;
+    trommel.setSpeed(map(channels[6], 0, 255, 0, 255), brakeState);
+ 
+    Serial.println(map(channels[6], 0, 255, -255, 255));
 }
 
 void platformScreen() {}

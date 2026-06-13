@@ -338,8 +338,6 @@ void platformLoopCore1();   // Core 1: leave empty
 
 The `tools/` directory contains a Python visualiser for inspecting and verifying animation tracks before flashing.
 
-
-
 ### Setup
 
 ```bash
@@ -372,10 +370,11 @@ docs/
   default_track.png   — full default animation timeline
 ```
 
-![expo_track](docs/expo_track.png)
+**Example output — animal_love expo animation:**
 
+![animal_love expo animation track](docs/expo_track.png)
 
-Example output: each actuator gets its own row. States that share a mux channel (e.g. [animal_love] siren=state1 and spray=state2 on mux2) are always shown on separate rows so they never overlap visually. Start and stop times are annotated at each transition edge.
+Each actuator gets its own row. States that share a mux channel (e.g. [animal_love] siren=state1 and spray=state2 on mux2) are always shown on separate rows so they never overlap visually. Start and stop times are annotated at each transition edge.
 
 ### Channel map file (`tools/channel_map.yaml`)
 
@@ -441,3 +440,77 @@ The top board's `getRemoteSwitch(button)` reads bit `button % 8` from the corres
 | SW(2,2) | mux2 state2 | spray (also fires top board relay0) |
 | SW(3,2) | mux3 state2 | ratel |
 | SW(9,1) | mux9 state1 | poten |
+
+---
+
+## Stofzuiger (vacuum cleaner) — platform notes
+
+### Hardware
+
+| Component | Detail |
+|---|---|
+| Drive motors | 2× Electromen H-bridge (board 3.5), sign/magnitude PWM |
+| Motor pins | motorLeft: 21, 22, 26 — motorRight: 18, 19, 20 |
+| DDSM210 | Direct drive hub motor, SoftwareSerial GP14 (TX) / GP15 (RX), 115200 baud |
+| Mouth servo | M5Unit8Servos board (I2C 0x25), channel 0, 1000–1500µs |
+| Controller | BetaFPV (no nunchuck) |
+
+### Channel mapping
+
+| Channel | Axis | Function |
+|---|---|---|
+| `channels[0]` AXIS_X1 | Right stick X | Drive left/right (cross-mix) |
+| `channels[1]` AXIS_Y1 | Right stick Y | Drive forward/back (cross-mix) |
+| `channels[2]` AXIS_X2 | Left stick X | Mouth servo (1000–1500µs) |
+| `channels[3]` AXIS_Y2 | Left stick Y | DDSM210 spin speed |
+
+### DDSM210 specifics
+
+The DDSM210 is a FOC-controlled PMSM hub motor. Key notes:
+
+- **No free-float via UART** — the motor always applies active control when powered. True free rotation is only possible when unpowered. Mode 0 (open loop) with cmd=0 gives minimal holding torque but is not a true coast.
+- **Speed loop mode (mode 2)** is used throughout. Mode is re-asserted every 5 seconds in `platformLoop()` as a watchdog against startup corruption.
+- **Shocks on speed change** are inherent to the FOC controller applying full current to reach commanded RPM instantly. Move the stick gradually to avoid them — no software ramping is applied (it was found to reduce responsiveness without solving the shock).
+- **DDSM owned by platform file** — `dc` and `DDSMport` are declared in `platform_stofzuiger.cpp`, not in `main.cpp`. The `!defined(STOFZUIGER)` guard in `main.cpp` prevents double-declaration.
+
+### Config.h flags for STOFZUIGER
+
+```cpp
+#define USE_MOTOR (1)
+#define USE_CROSS_MIXING (1)
+// No USE_SPEEDSCALING — BetaFPV, no nunchuck
+#define MAX_SPEED 255
+#define BRAKE_TIMEOUT 30
+#define USE_M5_SERVOS (1)
+#define USE_OLED (1)
+#define USE_CRSF (1)
+#define NUM_CHANNELS 16
+extern const int saveValues[];   // defined in platform_stofzuiger.cpp
+```
+
+### Startup sequence
+
+`platformSetup()` runs after `main.cpp` has initialised OLED and M5 servos. DDSM init:
+1. `delay(200)` — lets DDSM settle after power-up
+2. Mode + zero command sent 3× with 20ms gaps — handles corrupted first packet
+3. Buffer cleared
+
+This was necessary because the DDSM startup is unreliable when the RP2040 boots fast — USB serial init at 115200 baud can cause GPIO noise that corrupts the first UART packet.
+
+### Omniwheel / washmachine note
+
+The `mode == ACTIVE` gate added to the `#else` (non-speedscaling) motor path in `main.cpp` only affects STOFZUIGER. All other vehicles using `USE_MOTOR` also define `USE_SPEEDSCALING` and take the `#ifdef` branch which is unchanged.
+
+### Stofzuiger — updates and corrections
+
+**Mouth servo safe state** — `saveValues[2]` (AXIS_X2) is set to `0`, which maps to 1150µs (closed) via `map(0, 0, 255, 1150, 800)`. On RF link loss the servo automatically holds closed through the normal write path — no special detach logic needed.
+
+**Mouth servo range** — `map(channels[2], 0, 255, 1150, 800)`:
+- Stick low (0) → 1150µs → closed (safe default)
+- Stick high (255) → 800µs → fully open
+
+**DDSM ID** — the DDSM210 stores its motor ID in flash. Factory default is ID 1. This codebase uses `DDSM_ID 4`. If a replacement motor does not respond, check its ID using `ddsm_id_check()` and either update `DDSM_ID` in the platform file or reprogram the motor with `ddsm_change_id(4)`.
+
+**Pico W LED** — stofzuiger uses a Pico W. The onboard LED is routed through the CYW43 WiFi chip, not GPIO 25. Set `board = rpipicow` in `platformio.ini` for the stofzuiger env so the EarlPhilhower core correctly routes `LED_BUILTIN` through the CYW43 driver. No WiFi stack initialisation needed — just the board definition.
+
+**Servo detach on link loss** — multiple approaches were tried (`crsfReady()`, `crsfLost()`, a `servoAttached` flag) but all failed because `platformLoop()` runs every tick unconditionally and re-attaches the servo immediately after `platformOnIdle()` detaches it. The clean solution is `saveValues[2] = 0` so the servo naturally returns to closed on link loss without needing detach logic.
