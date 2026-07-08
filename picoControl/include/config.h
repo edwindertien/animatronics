@@ -5,7 +5,7 @@
 // vehicle-specific objects — those all live in platform_xxx.cpp / platform.h.
 
 //#define RS485_DEBUG        // uncomment to mirror RS485 TX to serial each tick
-//#define DEBUG              // uncomment to dump raw channel values to serial each tick
+#define DEBUG              // uncomment to dump raw channel values to serial each tick
 //#define ANIMATION_DEBUG    // uncomment to dump animation steps to serial (for recording)
 //#define RELAY_TEST         // uncomment to enable t/r serial commands for relay test
 //#define INPUT_DEBUG        // uncomment to dump switches+keypad to serial each tick

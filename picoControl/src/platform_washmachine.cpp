@@ -147,10 +147,10 @@ static void stopAllMotors() {
 }
 
 static void omniDrive(int Y, int X, int R) {
-    int fl =  -Y + X + R;
-    int fr =  -Y - X - R;
-    int bl =  Y - X + R;
-    int br =  Y + X - R;
+    int fl =  Y + X + R;
+    int fr =  Y - X - R;
+    int bl =  -Y - X + R;
+    int br =  -Y + X - R;
 
     // Scale down proportionally if any output exceeds range,
     // preserving direction of travel at full stick deflection

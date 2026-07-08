@@ -32,6 +32,13 @@ private:
     uint16_t colour;
     uint16_t brightness;
 
+    // Light mode / flicker
+    enum LightMode { MODE_OFF, MODE_FLICKER, MODE_STEADY };
+    LightMode mode = MODE_OFF;
+    unsigned long lastFlickerMs = 0;
+    uint8_t flickerBrightness = 0;
+    void flickerTick();
+
     // Parser state
     enum State { WAIT_FF1, WAIT_FF2, WAIT_ID, WAIT_LEN, WAIT_INS, WAIT_DATA, WAIT_CHK };
     State state;

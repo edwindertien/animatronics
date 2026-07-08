@@ -1,4 +1,3 @@
-
 #include "ST3215_LED.h"
 
 
@@ -46,6 +45,9 @@ void ST3215_LED::update() {
     while (uart_is_readable(uart)) {
         uint8_t b = uart_getc(uart);
         parseByte(b);
+    }
+    if (mode == MODE_FLICKER) {
+        flickerTick();
     }
 }
 
@@ -103,13 +105,38 @@ void ST3215_LED::sendStatus(uint8_t err, uint8_t *params, uint8_t paramLen) {
     debugDump("TX Status", buf, 6 + paramLen);
 }
 
-void ST3215_LED::updateRing() {
+void ST3215_LED::flickerTick() {
+    unsigned long now = millis();
+    if (now - lastFlickerMs < 30 + (rand() % 60)) return; // ~30-90ms jitter between updates
+    lastFlickerMs = now;
+
+    uint8_t base = 90;                  // "ceiling" brightness for flicker mode (lower = dimmer overall)
+    int dip = rand() % rand() % 90;     // biased toward bigger dips -> more time spent dark/dim
+    flickerBrightness = (dip < base) ? base - dip : 0;
+
     strip.clear();
     uint16_t hue = map(colour, 0, 4095, 0, 65532);
-    uint16_t bright = map(brightness,0,4095,0,255);
+    uint32_t color = strip.ColorHSV(hue, 255, flickerBrightness);
+    for (int i = 0; i < ledCount; i++) {
+        strip.setPixelColor(i, color);
+    }
+    strip.show();
+
+    if (debugEnabled) {
+        Serial.print("Flicker tick: brightness=");
+        Serial.println(flickerBrightness);
+    }
+}
+
+void ST3215_LED::updateRing() {
+    if (mode == MODE_FLICKER) return; // flickerTick() owns rendering in this mode
+
+    strip.clear();
+    uint16_t hue = map(colour, 0, 4095, 0, 65532);
+    uint16_t bright = map(brightness, 0, 4095, 0, 255);
     uint32_t color = strip.ColorHSV(hue, 255, bright);
     for(int i = 0; i<ledCount; i++){
-    strip.setPixelColor(i, color);
+        strip.setPixelColor(i, color);
     }
     strip.show();
 
@@ -193,8 +220,22 @@ void ST3215_LED::parseByte(uint8_t b) {
                         } else if (addr == 0x29) { // goal pos
                             pattern = pkt[5] | (pkt[6] << 8);
                             colour =  pkt[9] | (pkt[10] << 8);
-                            brightness = pkt[5] | (pkt[6] << 8);
-                            
+                            uint16_t rawBrightness = pkt[5] | (pkt[6] << 8); // same field pattern reads
+
+                            // Three discrete modes based on the raw switch value.
+                            // Thresholds are placeholders -- log rawBrightness via
+                            // debugDump/Serial and adjust these to sit cleanly
+                            // between your three actual switch positions.
+                            if (rawBrightness < 100) {
+                                mode = MODE_OFF;
+                                brightness = 0;
+                            } else if (rawBrightness < 700) {
+                                mode = MODE_FLICKER;
+                            } else {
+                                mode = MODE_STEADY;
+                                brightness = rawBrightness;
+                            }
+
                             sendStatus(0x00);
                             updateRing();
                         }

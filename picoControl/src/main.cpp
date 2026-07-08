@@ -365,16 +365,7 @@ void loop() {
     dc.ddsm_ctrl(4, map(channels[1], 0, 255, -2100, 2100), 0);
 #endif
 
-#ifdef USE_STS
-    st.WritePosEx(16, map(channels[0], 0, 255, 1024, 3072), 2000, 100);
-    st.WritePosEx(20, map(channels[5], 0, 255, 0, 1048), map(channels[6], 0, 255, 0, 2048), 100);
-    st.WritePosEx(15, map(channels[1], 0, 255, 512, 2048), 2000, 100);
-    st.WritePosEx(14, map(channels[2], 0, 255, 2700, 1024), 1000, 20);
-    { int cv = 1875, val = map(channels[2], 0, 255, -625, 625), off = 300;
-      st.WritePosEx(13, cv - val + off, 1000, 20);
-      st.WritePosEx(12, cv + val,       1000, 20); }
-    st.WritePosEx(11, map(channels[3], 0, 255, 1024, 3072), 1000, 20);
-#endif
+// STS servo control moved to platform_desklight.cpp
 
     // --- DC motor drive (cross-mix) ---
 #ifdef USE_MOTOR
