@@ -239,3 +239,57 @@ The DDSM210 stores its address in flash (factory default ID=1). The codebase use
 ### USE_M5_SERVOS must be defined for extern servos to link [stofzuiger]
 
 `servos` is declared in `main.cpp` under `#ifdef USE_M5_SERVOS`. Without this define in config.h, `extern M5Unit8Servos servos` in the platform file produces an undefined reference linker error. Always add `USE_M5_SERVOS` to any vehicle config that uses the servo board.
+
+---
+
+## DDSM210 free-spin investigation [stofzuiger, experimental]
+
+### All UART modes apply active FOC — no true coast
+
+Systematic investigation of all available DDSM210 modes:
+
+- **Speed loop (mode 2) at cmd=0**: motor holds at 0 rpm with active torque. `cur=-15` constant = magnetic cogging, not FOC. Cannot be eliminated via software.
+- **Open loop (mode 0) at cmd=0**: worse than speed loop. Shorts the windings → regenerative braking. `cur` spikes to -9000+ when pushed. Abandoned.
+- **Position loop (mode 3) with current pos as setpoint**: motor spins at full speed near deadband. FOC loop runs at ~10kHz; our 20Hz update rate means the motor fights movement for 50ms before setpoint updates. Abandoned.
+- **Speed loop with position-following**: same problem — controller always applies full current to reach each new setpoint.
+- **Heartbeat timeout**: motor continues at last commanded RPM after timeout, not passive. Only works if we also send zero-velocity commands, which defeats the purpose.
+
+**Root cause**: PMSM motors with permanent magnets always have magnetic cogging torque that cannot be eliminated by software. The FOC controller prevents any passive state while powered.
+
+### MOSFET power cut — only viable solution
+
+Hardware MOSFET (N-channel) on GPIO11 cuts 24V to the DDSM. Motor is truly passive when unpowered. Boot time after power restore: ~80ms empirically determined. Non-blocking implementation uses `millis()` so drive motors continue normally during DDSM boot.
+
+TX pin leakage: SoftwareSerial TX (GP14) held HIGH while active creates a current path through DDSM internals when motor power is cut. Fix: `DDSMport.end()` + `pinMode(14, INPUT)` on power cut.
+
+### Experimental vehicle as sandbox
+
+`platform_experimental.cpp` created as an exact copy of stofzuiger with added serial debug output (`spd`, `cur`, `pos`, `tmp`, `flt` every 500ms). All DDSM experiments done here first, then ported to stofzuiger once confirmed. This is the correct workflow for any future DDSM changes.
+
+### Feedback is valid — use it for diagnosis
+
+`ddsm210_fb()` after `ddsm_ctrl()` populates `speed_data`, `current`, `temperature`, `fault_code`. `ddsm_get_info()` additionally populates `ddsm_pos` (0-32767 = 0-360°). These are essential for verifying motor behaviour. Initial session had `spd=0` always because no `ddsm_get_info()` was called — the 0x64 feedback doesn't include position.
+
+---
+
+## BetaFPV OLED layout [washmachine, stofzuiger, desklight, experimental]
+
+`#define USE_BETAFPV` switches the bottom OLED rows to match the physical BetaFPV Lite 3 controller layout. Key decisions:
+
+- Left stick (X2/Y2) shown on left — Y2 shown as vertical with inversion, X2 as horizontal (matching DDSM and mouth servo axes)
+- Right stick (X1/Y1) shown on right — Y1 inverted
+- SA/SB/SC/SD shown as toggle switch icons (11×7px rectangles) without labels
+- SB above SA, SC above SD — matches physical controller layout
+- SA/SD flush with bottom of 32px display
+- No volume bar, no keypad, no nunchuck — these inputs don't exist on BetaFPV
+- RSSI bars and value aligned below LQ column on top row
+
+The toggle icon design: outline rectangle = state 0, filled block slides position for state 1/2/3. Distinguishes 2-pos (one block, left/right) from 3-pos (block slides through three positions).
+
+---
+
+## Desklight platform migration [desklight]
+
+STS3215 servo control moved from `main.cpp` `USE_STS` block to `platform_desklight.cpp`. The `USE_STS` declaration and init (STSport, st, STSport.begin()) remain in `main.cpp` as infrastructure — only the per-tick `WritePosEx` calls moved to `platformLoop()`. Same pattern as DDSM migration for stofzuiger.
+
+SD park mode overrides all other inputs with `return` — this is the correct pattern for an emergency/safe-state switch in `platformLoop()`. SA speed mode uses two sets of speed/accel values selected per tick — no mode switch needed since `WritePosEx` takes speed and accel as parameters.

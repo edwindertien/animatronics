@@ -821,6 +821,10 @@ void processScreen(int mode, int position) {
     display.print("WAS");
 #elif defined(STOFZUIGER)
     display.print("STO");
+#elif defined(DESKLIGHT)
+    display.print("DSK");
+#elif defined(EXPERIMENTAL)
+    display.print("EXP");
 #else
     display.print("?");
 #endif
@@ -850,6 +854,81 @@ void processScreen(int mode, int position) {
     display.print("%");
 #endif
 
+#ifdef USE_BETAFPV
+    // ── BetaFPV Lite 3 layout (128x32) ───────────────────────────────────────
+    // Physical controller layout mirrored on screen:
+    //   [SB][SA] [J_left] [J_right] [SC][SD]  [LQ/RSSI]
+    //   top row: SB, SC
+    //   bot row: SA, SD
+    // Joystick left = X2(horiz)/Y2(vert,DDSM), right = X1(horiz)/Y1(vert,drive)
+    // Toggle switch icon: outline rect = off, filled rect = on, half = mid
+
+    // Helper lambda for toggle icon (2-pos or 3-pos)
+    // x,y = top-left of icon, w=width, val=channel value, is3pos
+    auto drawToggle = [&](int x, int y, int val, bool is3pos) {
+        // Outer frame 11x7
+        display.drawRect(x, y, 11, 7, SSD1306_WHITE);
+        int state = (val < 64) ? 0 : (val < 192) ? 1 : 2;
+        if (is3pos) {
+            // 3 segments: left/mid/right each ~3px wide
+            int segW = 3;
+            display.fillRect(x+1 + state*3, y+1, segW, 5, SSD1306_WHITE);
+        } else {
+            // 2-pos: left half or right half filled
+            if (state == 0) display.fillRect(x+1, y+1, 4, 5, SSD1306_WHITE);
+            else            display.fillRect(x+6, y+1, 4, 5, SSD1306_WHITE);
+        }
+    };
+
+    // ── Top row: vehicle name + act/idle — switches pushed to bottom ───────────
+    display.setCursor(0, 0);
+#if defined(WASHMACHINE)
+    display.print(F("WAS"));
+#elif defined(STOFZUIGER)
+    display.print(F("STO"));
+#elif defined(DESKLIGHT)
+    display.print(F("DSK"));
+#elif defined(EXPERIMENTAL)
+    display.print(F("EXP"));
+#endif
+    // act/idle printed by main top-row code at x=20 (reuse existing)
+
+    // Bottom area: switches stacked vertically, joysticks centred
+    // Display 128x32, top row y=0-8 reserved for text
+    // Bottom area y=10-31: 21px height
+    // Two stacked 7px icons with 1px gap = 15px total, centred in 21px → y=10 and y=18
+    // SA(2-pos) top, SB(3-pos) bottom on left
+    // SC(3-pos) top, SD(2-pos) bottom on right
+    drawToggle(0, 17, channels[5], true);   // SB top-left
+    drawToggle(0, 25, channels[4], false);  // SA bottom-left (flush to bottom)
+
+    // ── Left joystick cx=26, cy=21, r=9 ──────────────────────────────────────
+    drawJoystick(26, 21, 9,
+        channels[CRSF_CH_AXIS_Y2],        // Y2 as horizontal
+        255 - channels[CRSF_CH_AXIS_X2],  // X2 inverted as vertical
+        false);
+
+    // ── Right joystick cx=50, cy=21, r=9 ─────────────────────────────────────
+    drawJoystick(50, 21, 9,
+        channels[CRSF_CH_AXIS_X1],
+        255 - channels[CRSF_CH_AXIS_Y1],  // Y1 inverted
+        false);
+
+    // SC(3-pos) top, SD(2-pos) bottom on right — 3px from joystick edge
+    drawToggle(63, 17, channels[6], true);   // SC top-right
+    drawToggle(63, 25, channels[7], false);  // SD bottom-right (flush to bottom)
+
+    // ── Signal bars + dBm at x=78 ────────────────────────────────────────────
+#ifdef USE_CRSF
+    drawSignalBars(96, 20, (int)ls.rssi_ant1);
+    display.setCursor(109, 13);
+    display.print((int)ls.rssi_ant1);
+#endif
+    // No volume bar for BetaFPV
+
+#else
+    // ── Standard picoRemote layout ────────────────────────────────────────────
+
     // ── Joystick 1 (x=10, y=19, r=9) — nunchuck Y inverted ──────────────────
     drawJoystick(10, 19, 9, channels[CRSF_CH_AXIS_X1], channels[CRSF_CH_AXIS_Y1], true);
 
@@ -864,8 +943,7 @@ void processScreen(int mode, int position) {
     {
         int x2 = channels[CRSF_CH_AXIS_X2];
         int y2 = channels[CRSF_CH_AXIS_Y2];
-        bool connected = !(x2 == 0 && y2 == 0);  // 0,0 = not transmitted
-        // Draw circle + crosshair always, but only fill dot if connected
+        bool connected = !(x2 == 0 && y2 == 0);
         display.drawCircle(34, 19, 9, SSD1306_WHITE);
         display.drawLine(34, 11, 34, 27, SSD1306_WHITE);
         display.drawLine(26, 19, 42, 19, SSD1306_WHITE);
@@ -900,6 +978,8 @@ void processScreen(int mode, int position) {
 
     // ── Volume bar at x=84, y=24 ─────────────────────────────────────────────
     drawVolBar(84, 24, channels[CRSF_CH_ANALOG1]);
+
+#endif // USE_BETAFPV
 
     display.display();
 }

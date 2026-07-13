@@ -28,6 +28,8 @@ public:
 	virtual void ddsm_ctrl(uint8_t id, int cmd, uint8_t act);
 	virtual void ddsm_get_info(uint8_t id);
 	virtual void ddsm_stop(uint8_t id);
+	virtual void ddsm_set_heartbeat(uint8_t id, int time_ms);
+
 	virtual int ddsm210_fb();
 	virtual int ddsm115_fb();
 

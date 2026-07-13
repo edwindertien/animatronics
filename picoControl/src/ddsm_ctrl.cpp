@@ -327,3 +327,20 @@ void DDSM_CTRL::ddsm_stop(uint8_t id) {
     ddsm210_fb();
   }
 }
+
+void DDSM_CTRL::ddsm_set_heartbeat(uint8_t id, int time_ms) {
+  packet_move[0] = id;
+  packet_move[1] = 0xF4;
+  packet_move[2] = (time_ms >> 8) & 0xFF;
+  packet_move[3] = time_ms & 0xFF;
+  packet_move[4] = 0x00;
+  packet_move[5] = 0x00;
+  packet_move[6] = 0x00;
+  packet_move[7] = 0x00;
+  packet_move[8] = 0x00;
+  uint8_t crc = 0;
+  for (size_t i = 0; i < packet_length - 1; ++i) crc = crc8_update(crc, packet_move[i]);
+  packet_move[9] = crc;
+  pSerial->write(packet_move, packet_length);
+  ddsm210_fb();
+}

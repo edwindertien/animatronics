@@ -514,3 +514,127 @@ The `mode == ACTIVE` gate added to the `#else` (non-speedscaling) motor path in 
 **Pico W LED** — stofzuiger uses a Pico W. The onboard LED is routed through the CYW43 WiFi chip, not GPIO 25. Set `board = rpipicow` in `platformio.ini` for the stofzuiger env so the EarlPhilhower core correctly routes `LED_BUILTIN` through the CYW43 driver. No WiFi stack initialisation needed — just the board definition.
 
 **Servo detach on link loss** — multiple approaches were tried (`crsfReady()`, `crsfLost()`, a `servoAttached` flag) but all failed because `platformLoop()` runs every tick unconditionally and re-attaches the servo immediately after `platformOnIdle()` detaches it. The clean solution is `saveValues[2] = 0` so the servo naturally returns to closed on link loss without needing detach logic.
+
+---
+
+## DDSM210 free-spin mode — MOSFET power cut [stofzuiger, experimental]
+
+After extensive investigation, the DDSM210 has no true free-spin/coast mode accessible via UART. All software modes (speed loop at 0, open loop cmd=0, position loop) apply active FOC control. Open loop cmd=0 is actually worse than speed loop — it shorts the windings causing regenerative braking.
+
+The solution is a hardware MOSFET on GPIO11 that cuts power to the DDSM entirely. With power cut, the motor spins freely. An N-channel MOSFET is used: GPIO HIGH = motor powered, GPIO LOW = power cut.
+
+### SA switch mode selection
+
+SA (channels[4], 3=off/252=on) selects deadband behaviour:
+- **SA off (default)** — free-spin: GPIO11 LOW, TX pin released (INPUT), motor coasts
+- **SA on** — lock: speed loop at 0 rpm, motor holds position
+
+### Non-blocking boot sequence
+
+When leaving the deadband after power cut:
+1. GPIO11 HIGH — power restored
+2. `DDSMport.begin(115200)` — SoftwareSerial re-initialised
+3. 80ms non-blocking wait (millis-based) — DDSM boots
+4. `ddsm_change_mode(DDSM_ID, 2)` + `ddsm_ctrl(DDSM_ID, 0, 0)` — re-init
+5. Motor responds normally
+
+The 80ms wait can be tuned down until unreliable, then add 20ms back as margin.
+
+### TX pin leakage
+
+When SoftwareSerial is active, the TX pin (GP14) is driven HIGH — creating a leakage path through the DDSM's internal pull-downs when the motor is powered off. Fix: `DDSMport.end()` + `pinMode(14, INPUT)` on power cut. Restored with `DDSMport.begin(115200)` when power is restored.
+
+### Config
+
+```cpp
+#define DDSM_PWR_PIN  11    // N-channel MOSFET gate
+#define DEADBAND      15    // ~12% of full range
+```
+
+---
+
+## Experimental vehicle
+
+An `EXPERIMENTAL` vehicle env was added as a sandbox for testing DDSM210 free-spin before porting to stofzuiger. It is an exact copy of platform_stofzuiger with added serial debug output:
+
+```
+OFF   spd=0  cur=0   pos=14192 tmp=33 flt=0   — power cut, motor free
+BOOT  ...                                       — waiting for DDSM boot
+SPD   spd=450 cur=194 pos=25160 tmp=33 flt=0  — active speed loop
+LOCK  spd=0  cur=-15  pos=20222 tmp=33 flt=0  — holding at 0 rpm
+```
+
+Build with `pio run -e experimental`. Once confirmed working, port changes to stofzuiger and leave experimental as the development branch.
+
+---
+
+## BetaFPV OLED layout (`USE_BETAFPV`)
+
+Add `#define USE_BETAFPV (1)` to config.h for vehicles using a BetaFPV Lite 3 controller (WASHMACHINE, STOFZUIGER, DESKLIGHT, EXPERIMENTAL).
+
+Layout differences from standard picoRemote layout:
+
+| Element | Standard | BetaFPV |
+|---|---|---|
+| Joystick order | J1 left, J2 right | Left stick left, right stick right |
+| J1 Y axis | nunchuck inverted | not inverted |
+| J2 Y axis | raw | inverted |
+| Left stick axes | X1/Y1 | X2(horiz)/Y2(vert, inverted) |
+| Nunchuck dots | yes | no |
+| Keypad grid | yes | no |
+| Volume bar | yes | no |
+| Switches | 4×4 mux grid | SA/SB/SC/SD toggle icons |
+| RSSI position | x=84 | x=96, y=13 |
+
+Switch icons are 11×7 rectangles:
+- **2-pos**: left half filled = low, right half filled = high
+- **3-pos**: small block slides left/mid/right
+
+Physical layout mirrors the BetaFPV controller:
+```
+[SB top]   [J_left]  [J_right]  [SC top]   [▂▄▆ dBm]
+[SA bot]                          [SD bot]
+```
+
+---
+
+## Desklight — STS3215 servo arm
+
+Six STS3215 serial bus servos on SoftwareSerial GP12(RX)/GP13(TX) at 1Mbaud. All servo control is in `platform_desklight.cpp` (`USE_STS` block moved from `main.cpp`).
+
+### Channel mapping
+
+| Channel | Servo ID | Range | Function |
+|---|---|---|---|
+| channels[0] AXIS_X1 | 16 | 1024-3072 | Pan/yaw |
+| channels[1] AXIS_Y1 | 15 | 512-2048 | Tilt/pitch |
+| channels[2] AXIS_X2 | 14 | 2700-1024 | Arm extend |
+| channels[2] AXIS_X2 | 12/13 | coupled | Bottom hinge pair |
+| channels[3] AXIS_Y2 | 11 | 1024-3072 | Arm rotate |
+| channels[5] ANALOG1 | 20 | 0-1048 | Light controller position |
+| channels[6] ANALOG2 | 20 | speed | Light controller speed |
+
+### SA speed mode [desklight]
+
+SA (ch4: 3=slow, 252=fast) selects servo speed/acceleration:
+- **Slow**: speed=2000, accel=100 — smooth, cinematic
+- **Fast**: speed=4000, accel=254 — snappy, responsive
+
+### SD park mode [desklight]
+
+SD (ch7: 3=normal, 252=park) sends all servos to safe positions and returns immediately, overriding all other inputs:
+```cpp
+ID16: 2048  // pan centre
+ID15:  512  // tilt down (head down)
+ID14: 2700  // arm retracted
+ID11: 2048  // rotate centre
+ID20:    0  // lamp off
+ID13: 2800  // bottom hinge park
+ID12: 1250  // bottom hinge park
+```
+
+### SB/SC light controller [desklight]
+
+SB (ch5) and SC (ch6) are 3-position switches controlling the STS-compatible light controller at ID 20:
+- SB: position (3→12µs, 128→526µs, 252→1036µs)
+- SC: transition speed (3→24, 128→1028, 252→2040)

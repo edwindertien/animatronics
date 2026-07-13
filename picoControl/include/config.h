@@ -48,12 +48,46 @@
 #include "Action.h"
 #include "ActionSequence.h"
 
+
+// Add #define USE_BETAFPV (1) to config.h for these vehicles:
+//   STOFZUIGER, WASHMACHINE, DESKLIGHT, EXPERIMENTAL
+// This switches the OLED layout to BetaFPV Lite 3 style:
+//   - Left stick shown first (X2/Y2), right stick second (X1/Y1)
+//   - Left stick X/Y not swapped (Y2=DDSM shows as vertical)
+//   - SA/SB/SC/SD switches shown as discrete indicators (ch4-7)
+//   - No nunchuck dots, no keypad grid, no volume bar
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef EXPERIMENTAL
+#define BOARD_V2 (1)
+#define USE_BETAFPV (1)
+#define USE_MOTOR (1)
+#define USE_CROSS_MIXING (1)
+// No USE_SPEEDSCALING — BetaFPV, no nunchuck, drive always active when armed
+// No USE_DDSM — DDSM is fully owned by platform_experimental.cpp
+#define MAX_SPEED 255
+#define BRAKE_TIMEOUT 30
+#define DDSM_HOLD 0           // 0 = free-float in deadband, 1 = hold at 0 rpm
+#define USE_M5_SERVOS (1)
+#define USE_OLED (1)
+#define USE_CRSF (1)
+#define CRSF_CHANNEL_OFFSET 3
+#define NUM_CHANNELS 16
+extern const int saveValues[];
+void configureMotors();
+extern Motor motorLeft;
+extern Motor motorRight;
+#endif
+
+
 
 // ============================================================================
 // ADD THIS BLOCK TO config.h (inside the existing #ifdef STOFZUIGER section)
 // Replace or augment the existing STOFZUIGER block with this:
 // ============================================================================
+
+
 
 #ifdef STOFZUIGER
 #define BOARD_V2 (1)

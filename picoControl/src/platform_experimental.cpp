@@ -1,4 +1,4 @@
-#ifdef STOFZUIGER
+#ifdef EXPERIMENTAL
 
 #include "config.h"
 #include "platform.h"
@@ -122,6 +122,22 @@ void platformLoop() {
         dc.ddsm_ctrl(DDSM_ID, rpm, 0);
     }
 
+    // ── Debug: print parsed feedback from last ddsm_ctrl() call ─────────────
+    // ddsm_ctrl() calls ddsm210_fb() internally which populates dc fields.
+    // Also call ddsm_get_info() every 500ms to get position (0x74 packet).
+    static unsigned long lastDbg = 0;
+    if (millis() - lastDbg > 500) {
+        // Get info packet for position
+        dc.ddsm_get_info(DDSM_ID);
+
+        Serial.print(lockMode ? F("LOCK ") : (powerCut ? F("OFF  ") : (wasInDeadband ? F("BOOT ") : F("SPD  "))));
+        Serial.print(F("spd="));  Serial.print(dc.speed_data);
+        Serial.print(F(" cur="));  Serial.print(dc.current);
+        Serial.print(F(" pos="));  Serial.print(dc.ddsm_pos);
+        Serial.print(F(" tmp="));  Serial.print(dc.temperature);
+        Serial.print(F(" flt="));  Serial.println(dc.fault_code);
+        lastDbg = millis();
+    }
 
     // ── Mouth servo — left stick X (channels[2]) ─────────────────────────────
     // 1150us = closed, 800us = open
@@ -138,4 +154,4 @@ void platformOnIdle() {
 void platformSetup1()    {}
 void platformLoopCore1() {}
 
-#endif // STOFZUIGER
+#endif // EXPERIMENTAL
