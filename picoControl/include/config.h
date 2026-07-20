@@ -60,15 +60,18 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef EXPERIMENTAL
-#define BOARD_V2 (1)
+#define BOARD_V3 (1)
 #define USE_BETAFPV (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
 // No USE_SPEEDSCALING — BetaFPV, no nunchuck, drive always active when armed
-// No USE_DDSM — DDSM is fully owned by platform_experimental.cpp
+// DDSM removed from this platform — only STOFZUIGER uses it now
 #define MAX_SPEED 255
-#define BRAKE_TIMEOUT 30
-#define DDSM_HOLD 0           // 0 = free-float in deadband, 1 = hold at 0 rpm
+#define MAIN_LOOP_PERIOD_MS 20   // 50Hz — faster CAN/servo updates for AK60 lip-sync
+// BRAKE_TIMEOUT is in main-loop ticks. Other platforms use BRAKE_TIMEOUT=30
+// at the default 49ms/tick (~1.47s real-world brake delay); scaled here so
+// this platform's faster tick rate preserves that same real-world delay.
+#define BRAKE_TIMEOUT ((30UL * 49UL) / MAIN_LOOP_PERIOD_MS)
 #define USE_M5_SERVOS (1)
 #define USE_OLED (1)
 #define USE_CRSF (1)
@@ -93,6 +96,7 @@ extern Motor motorRight;
 #define BOARD_V2 (1)
 #define USE_MOTOR (1)
 #define USE_CROSS_MIXING (1)
+#define USE_BETAFPV (1)
 // No USE_SPEEDSCALING — BetaFPV, no nunchuck, drive always active when armed
 // No USE_DDSM — DDSM is fully owned by platform_stofzuiger.cpp
 #define MAX_SPEED 255
@@ -114,6 +118,7 @@ extern Motor motorRight;
 #ifdef DESKLIGHT
 #define USE_STS (1)
 #define USE_OLED (1)
+#define USE_BETAFPV (1)
 #define OLED_ROTATE (1)
 #define USE_CRSF (1)
 #define CRSF_CHANNEL_OFFSET 3
@@ -126,6 +131,7 @@ extern const int saveValues[];
 #define USE_MOTOR (1)
 #define USE_M5_SERVOS (1)
 #define USE_SPEEDSCALING (1)
+#define USE_BETAFPV (1)
 #define LOW_SPEED 255
 #define HIGH_SPEED 255
 #define MAX_SPEED 255
@@ -309,3 +315,11 @@ void configureMotors();
 extern Action myActionList[NUM_ACTIONS];
 #endif
 
+// Main-loop tick period (ms) — 49ms (~20.4Hz) unless a platform above
+// overrides it. BRAKE_TIMEOUT (ticks) and animation playback speed
+// (1 recorded step per tick) are both expressed relative to this, so a
+// platform that overrides it should scale BRAKE_TIMEOUT accordingly — see
+// the EXPERIMENTAL block above for the pattern.
+#ifndef MAIN_LOOP_PERIOD_MS
+#define MAIN_LOOP_PERIOD_MS 49
+#endif

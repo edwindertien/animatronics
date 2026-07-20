@@ -293,3 +293,318 @@ The toggle icon design: outline rectangle = state 0, filled block slides positio
 STS3215 servo control moved from `main.cpp` `USE_STS` block to `platform_desklight.cpp`. The `USE_STS` declaration and init (STSport, st, STSport.begin()) remain in `main.cpp` as infrastructure — only the per-tick `WritePosEx` calls moved to `platformLoop()`. Same pattern as DDSM migration for stofzuiger.
 
 SD park mode overrides all other inputs with `return` — this is the correct pattern for an emergency/safe-state switch in `platformLoop()`. SA speed mode uses two sets of speed/accel values selected per tick — no mode switch needed since `WritePosEx` takes speed and accel as parameters.
+
+---
+
+## DDSM210 free-spin investigation [stofzuiger, experimental]
+
+### No true coast mode exists via UART
+
+All software modes apply active FOC:
+- **Speed loop (mode 2) cmd=0**: holds at 0 rpm with `cur=-15` constant (magnetic cogging, not FOC — cannot be eliminated)
+- **Open loop (mode 0) cmd=0**: worse — shorts windings causing regenerative braking. `cur` spikes to -9000+ when pushed. Abandoned.
+- **Position loop (mode 3) tracking current pos**: motor spins at full speed near deadband. FOC runs at ~10kHz; 20Hz update rate means motor fights movement for 50ms before setpoint updates. Abandoned.
+- **Heartbeat timeout**: motor keeps last commanded RPM; only stops if no commands sent. Implemented but failed because `platformLoop()` keeps sending `ddsm_ctrl(id,0,0)` in deadband — heartbeat never expires.
+
+**Root cause**: PMSM permanent magnets always have cogging torque that no software command can eliminate. The `-15` current reading is the physical motor, not the controller.
+
+### MOSFET power cut — confirmed working solution
+
+N-channel MOSFET on GPIO11: HIGH = motor powered, LOW = power cut. Motor truly free-spins when unpowered.
+
+**TX pin leakage**: SoftwareSerial TX (GP14) stays driven HIGH when active, creating a leakage path through DDSM internals when power is cut. Fix: `DDSMport.end()` + `pinMode(14, INPUT)` on power cut. Re-init with `DDSMport.begin(115200)` on restore.
+
+**Non-blocking boot sequence**: after power restore, 80ms `millis()`-based wait (not `delay()`) before re-sending `ddsm_change_mode` + `ddsm_ctrl`. During boot wait, `return` skips DDSM commands but allows drive motors and other platform functions to continue.
+
+**SA switch mode selection** (channels[4], 3=free-spin, 252=lock):
+- SA off: GPIO11 LOW + TX released → true free-spin
+- SA on: speed loop at 0 rpm → holds position
+
+Tune boot wait: reduce from 80ms in steps of 10ms until occasionally unreliable, add 20ms back.
+
+### Experimental vehicle as sandbox
+
+`platform_experimental.cpp` is an exact copy of stofzuiger used as a sandbox. All DDSM changes go here first; confirmed working changes are ported to stofzuiger. This prevents breaking a working vehicle during experimentation. Build with `pio run -e experimental`.
+
+**Current state**: experimental reverted to clean stofzuiger base (no CAN). CAN integration was attempted but caused boot freeze — see AK60/CAN section below.
+
+### Feedback is valid — use ddsm_get_info()
+
+`ddsm_ctrl()` calls `ddsm210_fb()` internally, populating `speed_data`, `current`, `temperature`, `fault_code`. These came back plausible. `ddsm_pos` (0-32767 = 0-360°) requires a separate `ddsm_get_info()` call (0x74 packet). Without it, `ddsm_pos` always reads 0.
+
+Debug output confirmed working:
+```
+OFF   spd=0   cur=0     pos=0     tmp=33 flt=0   — power cut
+SPD   spd=450 cur=194   pos=25160 tmp=33 flt=0   — active
+LOCK  spd=0   cur=-15   pos=20222 tmp=33 flt=0   — holding at 0
+```
+
+---
+
+## BetaFPV Lite 3 OLED layout [washmachine, stofzuiger, desklight, experimental]
+
+Add `#define USE_BETAFPV (1)` to config.h block for these vehicles. Implemented in `main.cpp` as `#ifdef USE_BETAFPV` / `#else` / `#endif` around the bottom display rows.
+
+### BetaFPV channel mapping (confirmed via debug output)
+
+| Switch | Channel | Values | Type |
+|---|---|---|---|
+| SA | ch4 | 3=off, 252=on | 2-pos |
+| SB | ch5 | 3=low, 128=mid, 252=high | 3-pos |
+| SC | ch6 | 3=low, 128=mid, 252=high | 3-pos |
+| SD | ch7 | 3=off, 252=on | 2-pos |
+
+Sticks: ch0=X1, ch1=Y1, ch2=X2, ch3=Y2. No nunchuck, no keypad, no volume.
+
+### OLED layout (128×32)
+
+```
+x=0        x=14   x=17-35         x=40-58         x=63-73  x=86       x=96
+[EXP/WAS]         [J_left cx=26]  [J_right cx=50]  [SC][SD] [LQ:xxx%]  [▂▄▆ dBm]
+                                                    [SC][SD]
+                  [SB top]                                              [RSSI val]
+                  [SA bot]
+```
+
+- SB at y=17, SA at y=25 (flush bottom) on left side (x=0)
+- SC at y=17, SD at y=25 on right side (x=63)
+- Left joystick: Y2 as horizontal, X2 inverted as vertical (DDSM and mouth axes)
+- Right joystick: X1 horizontal, Y1 inverted
+- Toggle icons: 11×7px rect, 2-pos half-filled, 3-pos block slides
+- Signal bars at x=96, RSSI value at x=109
+
+Vehicle name (EXP/WAS/STO/DSK) printed at x=14 on top row after SB label.
+
+---
+
+## Desklight — STS3215 servo arm
+
+Confirmed BetaFPV switch mapping for desklight. All servo `WritePosEx` calls moved from `main.cpp` to `platform_desklight.cpp` `platformLoop()`.
+
+### SA speed mode
+SA (ch4): 3=slow (speed=2000, accel=100), 252=fast (speed=4000, accel=254). Applied per-tick via `bool fastMode = (channels[4] > 128)`.
+
+### SD park override
+SD (ch7 > 128): sends all servos to safe positions and returns immediately, overriding all other input. This `return` pattern is the correct approach for any emergency override in `platformLoop()`.
+
+Park positions (confirmed hardware):
+```
+ID16: 2048  ID15: 512   ID14: 2700  ID11: 2048
+ID20: 0     ID13: 2800  ID12: 1250
+```
+
+### SB/SC light controller (ID 20)
+SB position: 3→12, 128→526, 252→1036 (via map 0-1048)
+SC speed: 3→24, 128→1028, 252→2040 (via map 0-2048)
+Light controller source code not yet verified against these ranges.
+
+---
+
+## Omniwheel drive [washmachine]
+
+Confirmed working mixing matrix (after physical testing):
+```cpp
+int fl =  Y + X + R;
+int fr =  Y - X - R;
+int bl = -Y - X + R;
+int br = -Y + X - R;
+```
+Previous session had this inverted. The confirmed matrix is now in `platform_washmachine.cpp`.
+
+---
+
+## CLI — Serial command interface
+
+New file: `src/CLI.h` + `src/CLI.cpp`. Called via `processCLI()` from `main.cpp` loop.
+
+Commands (all vehicles):
+- `status` — vehicle name, mode, CRSF state, RSSI, LQ, all 16 channels, brake state
+- `debug` — toggle 200ms channel dump
+- `ver` — vehicle name + build date/time
+- `can` — CAN/AK60 status (EXPERIMENTAL only, calls `ak60_print_status()`)
+- `help` / `?` — list commands
+
+Implementation: line-based (newline-terminated), static 32-char buffer. `mode` promoted from static local in `loop()` to global `int mode = 0` so CLI.cpp can extern it. `CrsfLinkStats` accessed via `crsfGetLinkStats(ls)` from `core1_crsf.h` — forward-declaring `struct LinkStats` does not work.
+
+---
+
+## AK60 CubeMars CAN motor — ATTEMPTED, NOT YET WORKING
+
+### Hardware
+M5Stack CAN Unit (CA-IS3050G transceiver): Grove connector, GP2=TX (yellow), GP3=RX (white). CAN-H/CAN-L to AK60. AK60 CAN ID = **104** (0x68), confirmed from previous session (`#define ID_MOTOR_1 104` in old main.cpp). MIT mode, 1Mbps. AK60-6 min voltage: 12V, rated 24V. AK60 LEDs: blue=power, green=CAN comms, red=fault.
+
+### Library
+`ACAN2040` from https://github.com/obdevel/ACAN2040. Installed via `lib_deps` in `[env:experimental]`. Wraps Kevin O'Connor's can2040 PIO driver.
+
+**Correct API** (from source, NOT from docs):
+```cpp
+// Constructor — all params inline, no separate begin(settings)
+ACAN2040(pio_num, gpio_tx, gpio_rx, bitrate, sys_clock, callback);
+
+// Send
+can2040.send_message(&msg);  // takes pointer to can2040_msg struct
+
+// Check before send
+can2040.ok_to_send();
+
+// Stats
+can2040.get_statistics(&stats);  // struct: rx_total, tx_total, tx_attempt, parse_error
+
+// Receive: callback only (interrupt-driven), not polling
+```
+
+### Root problem — `irq_set_exclusive_handler` crash
+
+`ACAN2040::begin()` calls `irq_set_exclusive_handler(PIO0_IRQ_0, ...)` which **hard panics** if that IRQ is already claimed. On RP2040 (including standard Pico, not just Pico W), SoftwareSerial (DDSMport) claims PIO IRQs. Switching to PIO1 and/or Hardware Serial2 for DDSM did not resolve the freeze — the exact PIO allocation depends on EarlPhilhower's internal state at the time `begin()` is called.
+
+Attempts made:
+- PIO0 → PIO1 switch: still freezes
+- SoftwareSerial → Serial2 (hardware UART) for DDSM: reduced conflict but still froze
+- Deferred `begin()` to `platformLoop()` first tick: system freezes on that tick
+- `board = rpipicow`: did not help (and wasn't needed for plain Pico)
+
+**Current status**: ABANDONED for this session. `platform_experimental.cpp` reverted to clean stofzuiger base without CAN. The ACAN2040 library is fundamentally incompatible with EarlPhilhower + SoftwareSerial due to shared PIO IRQ handlers.
+
+### Next steps for CAN
+Options to investigate in a new session:
+1. **Patch ACAN2040** to use `irq_set_shared_handler` instead of `irq_set_exclusive_handler` — allows multiple handlers on the same IRQ
+2. **Move CAN init to Core 1** via `platformSetup1()` — separate IRQ context, Core 1 has its own interrupt table
+3. **Use can2040 directly** (without the ACAN2040 wrapper) and manually configure the IRQ with shared handler
+4. **Different CAN library** — look for RP2040 CAN libraries that don't use `irq_set_exclusive_handler`
+
+### MIT protocol packet format (implemented, ready to use once CAN init works)
+
+Send (8 bytes):
+```
+data[0-1] = position (uint16, P_MIN..P_MAX mapped to 0-65535)
+data[2] + data[3]>>4 = velocity (12-bit, V_MIN..V_MAX)
+data[3]&0xF + data[4] = kp (12-bit)
+data[5] + data[6]>>4 = kd (12-bit)
+data[6]&0xF + data[7] = torque_ff (12-bit)
+```
+
+Receive (8 bytes, CAN ID = motor ID):
+```
+data[0] = driver ID
+data[1-2] = position (16-bit)
+data[3] + data[4]>>4 = velocity (12-bit)
+data[4]&0xF + data[5] = current (12-bit)
+data[6] = temperature
+data[7] = error code (1=overtemp, 2=overcurrent, 3=overvolt, 4=undervolt, 5=encoder, 6=phase)
+```
+
+Special commands: enable=0xFC, disable=0xFD, zero=0xFE in last byte with all others 0xFF.
+
+---
+
+## Files changed this session
+
+| File | Status | Notes |
+|---|---|---|
+| `src/platform_stofzuiger.cpp` | Updated | MOSFET free-spin, SA switch, non-blocking boot |
+| `src/platform_experimental.cpp` | Updated | Same as stofzuiger (CAN attempt reverted) |
+| `src/platform_desklight.cpp` | Updated | SA speed, SD park, SB/SC light |
+| `src/platform_washmachine.cpp` | Updated | Confirmed omni mixing matrix |
+| `src/main.cpp` | Updated | USE_BETAFPV OLED layout, CLI integration, mode global |
+| `src/CLI.cpp` | NEW | Serial CLI implementation |
+| `include/CLI.h` | NEW | CLI header |
+| `src/ddsm_ctrl.cpp` | Updated | `ddsm_set_heartbeat()` added (not used in stofzuiger) |
+| `include/ddsm_ctrl.h` | Updated | `ddsm_set_heartbeat()` declaration |
+| `platformio.ini` | Updated | experimental env added, lib_deps for ACAN2040 |
+| `picoControl_README.md` | Updated | DDSM, experimental, BetaFPV, desklight sections |
+---
+
+## main.cpp cleanup — dead ROBOTIS/CAN_DRIVER/CUBEMARS code removed [all vehicles]
+
+### What was removed and why
+
+Checked every `#ifdef`-guarded block in `main.cpp` against every `#define` in `platformio.ini` (`build_flags`) and `config.h` (per-vehicle blocks) to confirm which conditional blocks are actually reachable by any build. Three macros — `ROBOTIS`, `CAN_DRIVER`, `CUBEMARS` — are referenced by `#ifdef` in `main.cpp` but are **never defined anywhere in the entire codebase**, for any environment. That code has been permanently dead since at least the start of this session (predates the AK60 work) — removed:
+
+- **`ROBOTIS`** (3 blocks in `main.cpp`): `Dynamixel2Arduino` include/globals, the `dxl.begin()`/torque/position-mode setup sequence, and the per-tick `dxl.setGoalPosition()` call. This was leftover from an early Dynamixel servo experiment that was never wired into any vehicle's `config.h`. The `robotis-git/Dynamixel2Arduino` lib_dep in `platformio.ini`'s `env_base` was also removed — it was being pulled into and compiled for every single vehicle's binary for nothing, since nothing referenced it anywhere else in the tree.
+- **`CAN_DRIVER`** / **`CUBEMARS`** (3 blocks in `main.cpp`): the original MCP2515 + `TMotor_ServoConnection` (VESC-style CAN protocol) AK60 integration attempt, predating this session's ACAN2040-based work. Fully superseded — the current AK60 driver lives in the shared `include/ak60.h` / `src/ak60.cpp` module (used by `EXPERIMENTAL` and `WASHMACHINE`), which uses ACAN2040 (RP2040 PIO software CAN) instead of a physical MCP2515 SPI CAN controller.
+
+**Checked and deliberately left alone:** `USE_STS` was raised in the same request as a candidate for removal, but it is **not** dead code — it's actively defined in `config.h`'s `DESKLIGHT` block and used by both `main.cpp` (STSport init) and `platform_desklight.cpp` (per-tick `WritePosEx` calls, per the "Desklight platform migration" section above). Left untouched.
+
+### How to restore ROBOTIS, if ever needed again
+
+The removed blocks (verbatim, for reference — not currently in the tree):
+
+```cpp
+// Near top of main.cpp, after the USE_RS485 include block:
+#ifdef ROBOTIS
+#include <Dynamixel2Arduino.h>
+#define DXL_SERIAL   Serial1
+#define DEBUG_SERIAL Serial
+const int DXL_DIR_PIN = 2;
+const uint8_t DXL_ID = 1;
+const float DXL_PROTOCOL_VERSION = 2.0;
+Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
+using namespace ControlTableItem;
+#endif
+
+// In setup(), before the USE_CRSF block:
+#ifdef ROBOTIS
+    Serial1.setTX(0);
+    Serial1.setRX(1);
+    dxl.begin(1000000);
+    dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
+    dxl.ping(DXL_ID);
+    dxl.torqueOff(DXL_ID);
+    dxl.setOperatingMode(DXL_ID, OP_POSITION);
+    dxl.torqueOn(DXL_ID);
+    dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID, 0);
+#endif
+
+// In loop(), before the "Timeout / mode management" comment:
+#ifdef ROBOTIS
+    dxl.setGoalPosition(DXL_ID, map(channels[2], 0, 255, 1024, 3072));
+#endif
+```
+
+To reactivate: paste the three blocks back into `main.cpp` at the locations noted, add `robotis-git/Dynamixel2Arduino@^0.8.1` back to `env_base`'s `lib_deps` in `platformio.ini` (or to a specific vehicle's env if it shouldn't apply globally), and `#define ROBOTIS (1)` in that vehicle's `config.h` block. Note this was never wired into any real vehicle — pin assignments (`DXL_DIR_PIN`, Serial1 TX/RX) and the position-mode setup would need re-verifying against whatever hardware it's meant for.
+
+### How to restore CAN_DRIVER/CUBEMARS, if ever needed again
+
+The removed blocks (verbatim):
+
+```cpp
+// Near top of main.cpp, after the USE_M5_SERVOS block:
+#ifdef CAN_DRIVER
+#include "mcp_can.h"
+#include "TMotor_ServoConnection.h"
+#define CAN0_INT 2
+#endif
+
+#ifdef CUBEMARS
+#define ID_MOTOR_1 104
+MCP_CAN CAN0(&SPI1, 17);
+TMotor_ServoConnection servo_conn(CAN0);
+#endif
+
+// In setup(), before the USE_CRSF block:
+#ifdef CAN_DRIVER
+    while (CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) != CAN_OK) {
+        Serial.println("Error Initializing MCP2515...");
+        delay(100);
+    }
+    Serial.println("MCP2515 Initialized Successfully!");
+    CAN0.setMode(MCP_NORMAL);
+#endif
+
+#ifdef CUBEMARS
+    servo_conn.set_origin(ID_MOTOR_1, 0);
+#endif
+
+// In loop(), before the "Timeout / mode management" comment:
+#ifdef CUBEMARS
+    servo_conn.set_pos_spd(ID_MOTOR_1, 180, 1000, 1000);
+    if (!digitalRead(CAN0_INT)) {
+        while (CAN_MSGAVAIL == CAN0.checkReceive()) servo_conn.can_receive();
+    }
+    servo_conn.print_motor_vars(ID_MOTOR_1);
+#endif
+```
+
+`src/mcp_can.cpp` / `include/mcp_can.h` and `src/TMotor_ServoConnection.cpp` / `include/TMotor_ServoConnection.h` are still present in the repo — nothing was deleted, just unreferenced. If a future vehicle genuinely needs MCP2515 (physical SPI CAN controller board) instead of ACAN2040 (RP2040 PIO software CAN, no extra CAN controller chip needed), these files are ready to wire back in: paste the blocks back, `#define CAN_DRIVER` and/or `CUBEMARS` in that vehicle's `config.h`, and add `mcp_can_lib` (or whichever MCP2515 Arduino library it depends on — check the original `#include` resolution) to that environment's `lib_deps`.
+
+**Strongly consider using `ak60.h`/`ak60.cpp` instead** unless there's a specific reason to need MCP2515 hardware — it's the actively-maintained, tested path (confirmed working on real AK60 hardware in Servo mode, ported from `TMotor_ServoConnection.cpp`'s own math), shared across `EXPERIMENTAL` and `WASHMACHINE`, and doesn't require a separate physical CAN controller chip.

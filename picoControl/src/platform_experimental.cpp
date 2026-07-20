@@ -3,9 +3,9 @@
 #include "config.h"
 #include "platform.h"
 #include "Motor.h"
-#include "ddsm_ctrl.h"
 #include "M5Unit8Servos.h"
-#include <SoftwareSerial.h>
+#include "core1_crsf.h"
+#include "ak60.h"
 
 const int saveValues[] = { 127, 127, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //                          X1   Y1  X2  Y2
@@ -13,13 +13,31 @@ const int saveValues[] = { 127, 127, 0, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 extern M5Unit8Servos servos;
 
-DDSM_CTRL dc;
-SoftwareSerial DDSMport(15, 14);   // RX=GP15, TX=GP14
+// DDSM removed for this build — only platform_stofzuiger.cpp drives it.
+// Serial2 (UART1) is now exclusively CRSF's — see core1_crsf.cpp.
 
-#define DDSM_ID       4
-#define DDSM_MAX_RPM  2100
-#define DEADBAND      15
-#define DDSM_PWR_PIN  11    // MOSFET gate — HIGH=power on, LOW=power cut
+// AK60 CAN motor driver (protocol/hardware layer) lives in ak60.h/ak60.cpp,
+// shared with platform_washmachine.cpp. Wiring: M5Stack CAN unit on GP2(TX)/
+// GP3(RX), motor CAN ID 104 — see ak60.h for details/overrides.
+
+#define AK60_POS_RANGE_DEG   30.0f   // full stick sweep = ±30°
+#define AK60_ENGAGE_CH       CRSF_CH_ARM  // SA→ARM: disarmed=free, armed=position
+#define AK60_SPD_LIMIT       5000    // electrical speed cap, raw int16 — CubeMars tool default
+#define AK60_ACCEL_LIMIT     30000   // electrical accel cap, raw int16 — CubeMars tool default
+#define AK60_USE_POS_SPD     0       // 1 = SET_POS_SPD (tunable spd/accel above), 0 = plain SET_POS (motor default profile)
+
+// Soft re-engage: on disarmed→armed, approach the stick target gently
+// (low spd/accel) instead of jumping straight to full power. Once close
+// enough (or after a timeout, as a safety fallback), switch to normal
+// full-power tracking above.
+#define AK60_CATCHUP_SPD        500    // electrical speed cap while catching up — tune by feel
+#define AK60_CATCHUP_ACCEL      2000   // electrical accel cap while catching up — tune by feel
+#define AK60_CATCHUP_DONE_DEG   2.0f   // catch-up ends once within this many degrees of target
+#define AK60_CATCHUP_TIMEOUT_MS 3000UL // safety fallback if the threshold is never reached
+
+static bool ak60_wasEngaged  = false;
+static bool ak60_catchingUp  = false;
+static unsigned long ak60_catchupT0 = 0;
 
 Motor motorRight(18, 19, 20, -1);
 Motor motorLeft (21, 22, 26, -1);
@@ -32,115 +50,86 @@ void configureMotors() {
 void platformSetup() {
     configureMotors();
 
-    pinMode(DDSM_PWR_PIN, OUTPUT);
-    digitalWrite(DDSM_PWR_PIN, HIGH);  // N-channel: HIGH = motor ON
-    DDSMport.begin(115200);
-    dc.pSerial = &DDSMport;
-    dc.set_ddsm_type(210);
-    dc.clear_ddsm_buffer();
-    delay(200);
-    for (int i = 0; i < 3; i++) {
-        dc.ddsm_change_mode(DDSM_ID, 2);
-        delay(20);
-        dc.ddsm_ctrl(DDSM_ID, 0, 0);
-        delay(20);
-    }
-    dc.clear_ddsm_buffer();
-
     servos.writeServoPulse(0, 1150, true);  // mouth closed
+    // CAN init deferred to first platformLoop() tick
 }
 
 void platformLoop() {
     extern int channels[];
 
-    // ── DDSM210 — left stick Y (channels[3]) ─────────────────────────────────
-    int yRaw    = channels[CRSF_CH_AXIS_Y2] - 127;
-    bool inDeadband = (yRaw > -DEADBAND && yRaw < DEADBAND);
-    static bool wasInDeadband = true;
+    // ── Loop/CRSF/CAN rate instrumentation — printed once per second ─────────
+    static uint32_t loopCount      = 0;
+    static uint32_t lastRateMs     = 0;
+    static uint32_t lastLoopCount  = 0;
+    static uint32_t lastFrameCount = 0;
+    static uint32_t lastTxTotal    = 0;
+    loopCount++;
+    if (millis() - lastRateMs >= 1000) {
+        uint32_t dt = millis() - lastRateMs;
+        CrsfStatus crsf = crsfGetStatus();
+        uint32_t txTotal = ak60Ready() ? ak60TxTotal() : 0;
+        if (ak60DebugStream()) {
+            float loopHz = (loopCount - lastLoopCount)   * 1000.0f / dt;
+            float crsfHz = (crsf.frameCount - lastFrameCount) * 1000.0f / dt;
+            float canHz  = (txTotal - lastTxTotal)       * 1000.0f / dt;
+            Serial.print(F("[RATE] loop="));   Serial.print(loopHz, 1);
+            Serial.print(F("Hz crsf="));       Serial.print(crsfHz, 1);
+            Serial.print(F("Hz can_tx="));     Serial.print(canHz, 1);
+            Serial.println(F("Hz"));
+        }
+        lastRateMs     = millis();
+        lastLoopCount  = loopCount;
+        lastFrameCount = crsf.frameCount;
+        lastTxTotal    = txTotal;
+    }
 
-    static bool  powerCut         = false;
-    static unsigned long restoreTime = 0;
+    // ── Deferred CAN init — once, after all resources allocated ──────────────
+    ak60Begin();
 
-    // SA (channels[4]): 3=free-spin in deadband (default), 252=lock at 0 rpm
-    bool lockMode = (channels[4] > 128);
+    // ── AK60 — left stick X (channels[2]) → position control ─────────────────
+    if (ak60Ready()) {
+        float target = map(channels[CRSF_CH_AXIS_X2], 0, 255,
+                            (int)(-AK60_POS_RANGE_DEG * 10), (int)(AK60_POS_RANGE_DEG * 10)) / 10.0f;
+        bool engaged = channels[AK60_ENGAGE_CH] > 128;
 
-    if (inDeadband) {
-        if (lockMode) {
-            // Lock mode — hold at 0 rpm in speed loop (original behaviour)
-            if (powerCut) {
-                // Restore power if it was cut
-                digitalWrite(DDSM_PWR_PIN, HIGH);
-                DDSMport.begin(115200);
-                powerCut    = false;
-                restoreTime = 0;
-                wasInDeadband = true;
-            }
-            if (wasInDeadband) {
-                dc.ddsm_change_mode(DDSM_ID, 2);
-                wasInDeadband = false;
-            }
-            dc.ddsm_ctrl(DDSM_ID, 0, 0);
+        if (!engaged) {
+            // Backdrivable: zero commanded current, shaft free to be moved by hand.
+            ak60SetCurrent(0.0f);
+            ak60_wasEngaged = false;
         } else {
-            // Free-spin mode — cut motor power
-            if (!powerCut) {
-                digitalWrite(DDSM_PWR_PIN, LOW);
-                DDSMport.end();
-                pinMode(14, INPUT);
-                powerCut      = true;
-                restoreTime   = 0;
+            if (!ak60_wasEngaged) {
+                // Rising edge (just re-engaged) — start the soft catch-up phase.
+                ak60_catchingUp = true;
+                ak60_catchupT0  = millis();
             }
-        }
-        wasInDeadband = true;
-
-    } else {
-        if (powerCut) {
-            // Restore power and start non-blocking boot wait
-            digitalWrite(DDSM_PWR_PIN, HIGH);  // N-channel: HIGH = motor ON
-            DDSMport.begin(115200);               // re-init SoftwareSerial
-            restoreTime = millis();
-            powerCut    = false;
-        }
-
-        if (restoreTime > 0) {
-            // Still waiting for DDSM to boot
-            if (millis() - restoreTime < 80) {   // tune down until unreliable
-                wasInDeadband = true;  // keep wasInDeadband true so mode re-asserts
-                return;                // skip rest of loop — don't drive yet
+            if (ak60_catchingUp) {
+                float gap = target - ak60Pos();
+                if (gap < 0) gap = -gap;
+                if (gap < AK60_CATCHUP_DONE_DEG ||
+                    millis() - ak60_catchupT0 > AK60_CATCHUP_TIMEOUT_MS) {
+                    ak60_catchingUp = false;
+                }
             }
-            // Boot complete — re-init DDSM
-            dc.ddsm_change_mode(DDSM_ID, 2);
-            dc.ddsm_ctrl(DDSM_ID, 0, 0);
-            restoreTime   = 0;
-            wasInDeadband = true;  // force mode re-assert on next tick
+            if (ak60_catchingUp) {
+                // Soft approach — low speed/accel until close to the stick target.
+                ak60SetPosSpd(target, AK60_CATCHUP_SPD, AK60_CATCHUP_ACCEL);
+            } else {
+                // Speed/accel-limited move — the motor's own trajectory generator
+                // eases into position, following the live stick target.
+#if AK60_USE_POS_SPD
+                ak60SetPosSpd(target, AK60_SPD_LIMIT, AK60_ACCEL_LIMIT);
+#else
+                ak60SetPos(target);
+#endif
+            }
+            ak60_wasEngaged = true;
         }
 
-        if (wasInDeadband) {
-            dc.ddsm_change_mode(DDSM_ID, 2);
-            wasInDeadband = false;
-        }
-        int rpm = map(yRaw, -127, 127, -DDSM_MAX_RPM, DDSM_MAX_RPM);
-        dc.ddsm_ctrl(DDSM_ID, rpm, 0);
+        ak60DebugPrint();
     }
 
-    // ── Debug: print parsed feedback from last ddsm_ctrl() call ─────────────
-    // ddsm_ctrl() calls ddsm210_fb() internally which populates dc fields.
-    // Also call ddsm_get_info() every 500ms to get position (0x74 packet).
-    static unsigned long lastDbg = 0;
-    if (millis() - lastDbg > 500) {
-        // Get info packet for position
-        dc.ddsm_get_info(DDSM_ID);
-
-        Serial.print(lockMode ? F("LOCK ") : (powerCut ? F("OFF  ") : (wasInDeadband ? F("BOOT ") : F("SPD  "))));
-        Serial.print(F("spd="));  Serial.print(dc.speed_data);
-        Serial.print(F(" cur="));  Serial.print(dc.current);
-        Serial.print(F(" pos="));  Serial.print(dc.ddsm_pos);
-        Serial.print(F(" tmp="));  Serial.print(dc.temperature);
-        Serial.print(F(" flt="));  Serial.println(dc.fault_code);
-        lastDbg = millis();
-    }
-
-    // ── Mouth servo — left stick X (channels[2]) ─────────────────────────────
-    // 1150us = closed, 800us = open
+    // ── Mouth servo — left stick X placeholder (channels[2]) ─────────────────
+    // Mouth and AK60 share channels[2] for now — separate when hardware is split
     int mouthPulse = map(channels[CRSF_CH_AXIS_X2], 0, 255, 1150, 800);
     servos.writeServoPulse(0, mouthPulse, true);
 }
@@ -148,7 +137,9 @@ void platformLoop() {
 void platformScreen() {}
 
 void platformOnIdle() {
-    dc.ddsm_ctrl(DDSM_ID, 0, 0);
+    // Servo-mode position control holds the last commanded position on its
+    // own — no disable/idle command sent for now. Flag if different idle
+    // behavior (e.g. current-brake to let it free-spin) is wanted here.
 }
 
 void platformSetup1()    {}

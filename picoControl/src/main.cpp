@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "platform.h"
+#include "CLI.h"
 #include "PicoRelay.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,14 +26,7 @@ volatile bool _core0SetupDone = false;
 #include <Adafruit_SSD1306.h>
 Adafruit_SSD1306 display = Adafruit_SSD1306(128, 32, &Wire);
 void processScreen(int mode, int position);
-#endif
-
-#if defined(USE_DDSM) && !defined(STOFZUIGER)
-// DDSM for non-stofzuiger vehicles — stofzuiger owns dc/DDSMport in its platform file
-#include <ddsm_ctrl.h>
-#include <SoftwareSerial.h>
-DDSM_CTRL dc;
-SoftwareSerial DDSMport(18, 19);
+int mode = 0;  // global — accessible from CLI.cpp (0=IDLE, defined later)
 #endif
 
 #ifdef USE_STS
@@ -68,32 +62,9 @@ unsigned int sm = pio_claim_unused_sm(pio, true);
 #define SLOW_SPEED 150
 #endif
 
-#ifdef ROBOTIS
-#include <Dynamixel2Arduino.h>
-#define DXL_SERIAL   Serial1
-#define DEBUG_SERIAL Serial
-const int DXL_DIR_PIN = 2;
-const uint8_t DXL_ID = 1;
-const float DXL_PROTOCOL_VERSION = 2.0;
-Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
-using namespace ControlTableItem;
-#endif
-
 #ifdef USE_M5_SERVOS
 #include "M5Unit8Servos.h"
 M5Unit8Servos servos;
-#endif
-
-#ifdef CAN_DRIVER
-#include "mcp_can.h"
-#include "TMotor_ServoConnection.h"
-#define CAN0_INT 2
-#endif
-
-#ifdef CUBEMARS
-#define ID_MOTOR_1 104
-MCP_CAN CAN0(&SPI1, 17);
-TMotor_ServoConnection servo_conn(CAN0);
 #endif
 
 #define IDLE     0
@@ -204,14 +175,6 @@ void setup() {
     display.clearDisplay();
 #endif
 
-#if defined(USE_DDSM) && !defined(STOFZUIGER)
-    DDSMport.begin(115200);
-    dc.pSerial = &DDSMport;
-    dc.set_ddsm_type(210);
-    dc.clear_ddsm_buffer();
-    dc.ddsm_change_mode(4, 2);
-#endif
-
 #ifdef USE_STS
     STSport.begin(1000000);
     st.pSerial = &STSport;
@@ -238,31 +201,6 @@ void setup() {
 
 #ifdef USE_RS485
     RS485Init(RS485_BAUD, RS485_SR);
-#endif
-
-#ifdef ROBOTIS
-    Serial1.setTX(0);
-    Serial1.setRX(1);
-    dxl.begin(1000000);
-    dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
-    dxl.ping(DXL_ID);
-    dxl.torqueOff(DXL_ID);
-    dxl.setOperatingMode(DXL_ID, OP_POSITION);
-    dxl.torqueOn(DXL_ID);
-    dxl.writeControlTableItem(PROFILE_VELOCITY, DXL_ID, 0);
-#endif
-
-#ifdef CAN_DRIVER
-    while (CAN0.begin(MCP_ANY, CAN_1000KBPS, MCP_8MHZ) != CAN_OK) {
-        Serial.println("Error Initializing MCP2515...");
-        delay(100);
-    }
-    Serial.println("MCP2515 Initialized Successfully!");
-    CAN0.setMode(MCP_NORMAL);
-#endif
-
-#ifdef CUBEMARS
-    servo_conn.set_origin(ID_MOTOR_1, 0);
 #endif
 
 #ifdef USE_CRSF
@@ -297,27 +235,10 @@ bool brakeState = 1;           // file-scope so platform files can read it
 unsigned long brakeTimer = 0;  // file-scope so platform files can reset it
 
 void loop() {
-    static int mode = IDLE;
     static bool startedUp = false;
 
-#ifdef RELAY_TEST
-    // Serial command handler — type a command in serial monitor and press Enter:
-    //   't' = run relay test (flash all 16 relays one by one)
-    //   'r' = read back I2C status of relay board
-    if (Serial.available()) {
-        char cmd = Serial.read();
-        while (Serial.available()) Serial.read();  // flush rest of line
-        if (cmd == 't') {
-            Serial.println("=== RELAY TEST ===");
-            relay.relayTest();
-            Serial.println("=== RELAY TEST DONE ===");
-        } else if (cmd == 'r') {
-            relay.relayStatus();
-        }
-    }
-#endif
-
-    // Poll functions that run outside the 20Hz gate
+    processCLI();
+    // Poll functions that run outside the main-loop gate
 #ifndef USE_CRSF
     RadioPoll();
 #endif
@@ -332,10 +253,10 @@ void loop() {
 #endif
 
     // -------------------------------------------------------------------------
-    // 20 Hz main loop
+    // Main loop, gated at MAIN_LOOP_PERIOD_MS (default 49ms / ~20.4Hz)
     // -------------------------------------------------------------------------
     static unsigned long looptime;
-    if (millis() < looptime + 49) return;
+    if (millis() < looptime + MAIN_LOOP_PERIOD_MS) return;
     looptime = millis();
 
     // --- CRSF: read channels mapped by Core 1 ---
@@ -361,10 +282,6 @@ void loop() {
 #endif
 
     // --- Specialist hardware output ---
-#if defined(USE_DDSM) && !defined(STOFZUIGER)
-    dc.ddsm_ctrl(4, map(channels[1], 0, 255, -2100, 2100), 0);
-#endif
-
 // STS servo control moved to platform_desklight.cpp
 
     // --- DC motor drive (cross-mix) ---
@@ -589,18 +506,6 @@ void loop() {
 #endif // BUFFER_PASSTHROUGH
 #endif // USE_RS485
 
-#ifdef ROBOTIS
-    dxl.setGoalPosition(DXL_ID, map(channels[2], 0, 255, 1024, 3072));
-#endif
-
-#ifdef CUBEMARS
-    servo_conn.set_pos_spd(ID_MOTOR_1, 180, 1000, 1000);
-    if (!digitalRead(CAN0_INT)) {
-        while (CAN_MSGAVAIL == CAN0.checkReceive()) servo_conn.can_receive();
-    }
-    servo_conn.print_motor_vars(ID_MOTOR_1);
-#endif
-
     // --- Timeout / mode management ---
 #ifdef USE_CRSF
     // Loss: crsfLost() is true when Core 1 confirmed 500ms silence.
@@ -665,7 +570,7 @@ void loop() {
     watchdog_update();
 
     // -------------------------------------------------------------------------
-    // End of 20Hz loop
+    // End of gated main loop
     // -------------------------------------------------------------------------
 
     // Screen update on separate (slower) timer

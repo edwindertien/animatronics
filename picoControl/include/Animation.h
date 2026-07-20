@@ -8,7 +8,12 @@
 
 #define PAUSE 600 // Pause after each complete loop (in loops)
 
-// animationStep — one 20Hz frame of recorded channel data.
+// animationStep — one recorded frame of channel data, played back at one
+// step per main-loop tick. All existing Track-xxx.h data was recorded
+// assuming the default ~20Hz loop rate (MAIN_LOOP_PERIOD_MS=49) — a
+// platform that overrides MAIN_LOOP_PERIOD_MS to something faster/slower
+// will play these back proportionally faster/slower in real time, since
+// stepping isn't independently time-gated (unlike e.g. the OLED refresh).
 // 9 bytes per step, stored in PROGMEM.
 // Field names match crsf_channels.h semantics.
 // Binary layout is identical to the original struct so all existing

@@ -84,7 +84,7 @@ void Animation::update() {
   if (animationTimer > (totalSteps - 1)) {
     paused = true;
     #ifdef ANIMATION_DEBUG
-    Serial.print("-> pause "); Serial.println((totalSteps + PAUSE - animationTimer) / 20.0);
+    Serial.print("-> pause "); Serial.println((totalSteps + PAUSE - animationTimer) / (1000.0 / MAIN_LOOP_PERIOD_MS));
     #endif
   }
 

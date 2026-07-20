@@ -638,3 +638,27 @@ ID12: 1250  // bottom hinge park
 SB (ch5) and SC (ch6) are 3-position switches controlling the STS-compatible light controller at ID 20:
 - SB: position (3→12µs, 128→526µs, 252→1036µs)
 - SC: transition speed (3→24, 128→1028, 252→2040)
+
+---
+
+## CLI — Serial command interface
+
+`src/CLI.cpp` + `include/CLI.h`. Called via `processCLI()` from `main.cpp` loop. Line-based input (type command + Enter in serial monitor).
+
+| Command | Effect |
+|---|---|
+| `status` | Vehicle name, mode, CRSF state, RSSI, LQ, all 16 channels |
+| `debug` | Toggle 200ms channel dump (all 16 channels) |
+| `ver` | Build date/time |
+| `can` | CAN/AK60 status (EXPERIMENTAL only) |
+| `help` / `?` | List commands |
+
+---
+
+## AK60 CubeMars CAN motor [experimental — in progress]
+
+**Hardware**: M5Stack CAN Unit (CA-IS3050G transceiver), GP2=TX (yellow), GP3=RX (white), CAN-H/CAN-L to AK60. Motor CAN ID = **104**, MIT mode, 1Mbps. Min voltage 12V.
+
+**Status**: ACAN2040 library integrated but `begin()` causes hard freeze due to `irq_set_exclusive_handler` conflicting with EarlPhilhower's PIO usage (SoftwareSerial). Reverted for this session. Next approach: patch ACAN2040 to use shared IRQ handler, or init CAN on Core 1.
+
+**Previous working state**: AK60 was confirmed moving in an earlier session using MCP2515 SPI CAN controller (`ID_MOTOR_1 = 104`). The MIT protocol implementation is complete and ready in the codebase — only the CAN transport layer needs to be fixed.

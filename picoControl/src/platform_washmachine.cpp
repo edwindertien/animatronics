@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "Motor.h"
 #include "M5Unit8Servos.h"
+#include "ak60.h"
 
 const int saveValues[] = { 127, 127, 127, 127, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
@@ -126,6 +127,26 @@ void configureMotors() {
 
 #define DEADBAND 4
 
+// AK60 CAN motor (mouth) — tandem with the door servo for now, same input
+// channel driving both. Reuses the tuning values proven out on EXPERIMENTAL.
+#define AK60_POS_RANGE_DEG 30.0f   // full stick sweep = ±30°
+#define AK60_SPD_LIMIT     5000    // electrical speed cap, raw int16 — CubeMars tool default
+#define AK60_ACCEL_LIMIT   30000   // electrical accel cap, raw int16 — CubeMars tool default
+#define AK60_USE_POS_SPD   0       // 1 = SET_POS_SPD (tunable spd/accel above), 0 = plain SET_POS (motor default profile)
+
+// Soft re-engage: on disarmed→armed, approach the stick target gently
+// (low spd/accel) instead of jumping straight to full power. Once close
+// enough (or after a timeout, as a safety fallback), switch to normal
+// full-power tracking above. Same scheme as EXPERIMENTAL.
+#define AK60_CATCHUP_SPD        500    // electrical speed cap while catching up — tune by feel
+#define AK60_CATCHUP_ACCEL      2000   // electrical accel cap while catching up — tune by feel
+#define AK60_CATCHUP_DONE_DEG   2.0f   // catch-up ends once within this many degrees of target
+#define AK60_CATCHUP_TIMEOUT_MS 3000UL // safety fallback if the threshold is never reached
+
+static bool ak60_wasEngaged  = false;
+static bool ak60_catchingUp  = false;
+static unsigned long ak60_catchupT0 = 0;
+
 static int joystickToSigned(int raw) {
     int val = raw - 127;
     if (val > -DEADBAND && val < DEADBAND) val = 0;
@@ -175,6 +196,9 @@ void platformSetup() {
 }
 
 void platformLoop() {
+    // ── Deferred CAN init — once, after all resources allocated ──────────────
+    ak60Begin();
+
     int Y = joystickToSigned(channels[CRSF_CH_AXIS_Y2]);
     int X = joystickToSigned(channels[CRSF_CH_AXIS_X1]);
     int R = joystickToSigned(channels[CRSF_CH_AXIS_Y1]);
@@ -182,14 +206,54 @@ void platformLoop() {
 
     int doorPulse = map(channels[CRSF_CH_AXIS_X2], 0, 255, 1000, 2000);
     servos.writeServoPulse(CH_DOOR, doorPulse, true);
-    
+
+    // AK60 (mouth) — same channel as the door servo, operating in tandem for now.
+    // Gated by SA/ARM: disarmed = backdrivable (0A), armed = position control,
+    // with a soft catch-up ramp on re-engage — same scheme as EXPERIMENTAL.
+    if (ak60Ready()) {
+        float ak60Target = map(channels[CRSF_CH_AXIS_X2], 0, 255,
+                                (int)(-AK60_POS_RANGE_DEG * 10), (int)(AK60_POS_RANGE_DEG * 10)) / 10.0f;
+        bool engaged = channels[CRSF_CH_ARM] > 128;
+
+        if (!engaged) {
+            ak60SetCurrent(0.0f);
+            ak60_wasEngaged = false;
+        } else {
+            if (!ak60_wasEngaged) {
+                // Rising edge (just re-engaged) — start the soft catch-up phase.
+                ak60_catchingUp = true;
+                ak60_catchupT0  = millis();
+            }
+            if (ak60_catchingUp) {
+                float gap = ak60Target - ak60Pos();
+                if (gap < 0) gap = -gap;
+                if (gap < AK60_CATCHUP_DONE_DEG ||
+                    millis() - ak60_catchupT0 > AK60_CATCHUP_TIMEOUT_MS) {
+                    ak60_catchingUp = false;
+                }
+            }
+            if (ak60_catchingUp) {
+                // Soft approach — low speed/accel until close to the stick target.
+                ak60SetPosSpd(ak60Target, AK60_CATCHUP_SPD, AK60_CATCHUP_ACCEL);
+            } else {
+                // Speed/accel-limited move — the motor's own trajectory generator
+                // eases into position, following the live stick target.
+#if AK60_USE_POS_SPD
+                ak60SetPosSpd(ak60Target, AK60_SPD_LIMIT, AK60_ACCEL_LIMIT);
+#else
+                ak60SetPos(ak60Target);
+#endif
+            }
+            ak60_wasEngaged = true;
+        }
+        ak60DebugPrint();
+    }
+
     servos.writeServoPulse(CH_KNOB, map(channels[5], 0, 255, 1000, 2000), true);
 
     extern bool brakeState;
     extern unsigned long brakeTimer;
     trommel.setSpeed(map(channels[6], 0, 255, 0, 255), brakeState);
- 
-    Serial.println(map(channels[6], 0, 255, -255, 255));
 }
 
 void platformScreen() {}
